@@ -160,6 +160,25 @@ export const sfx = {
   step() {
     tone(N(67), 0.05, { type: "triangle", vol: 0.1 });
   },
+  laser() {
+    tone(N(100), 0.25, { type: "sawtooth", vol: 0.08, slideTo: N(60) });
+    noise(0.15, { vol: 0.08, highpass: 4000 });
+  },
+  hum() {
+    tone(N(48), 1.4, { type: "sine", vol: 0.14, slideTo: N(55) });
+    tone(N(72), 1.4, { type: "triangle", vol: 0.05, slideTo: N(76) });
+  },
+  whoosh() {
+    noise(0.7, { vol: 0.18, highpass: 600, lowpass: 5000 });
+  },
+  engine() {
+    for (let i = 0; i < 8; i++) tone(N(36 + (i % 2) * 5), 0.12, { type: "sawtooth", vol: 0.1, at: i * 0.09, slideTo: N(44 + i) });
+    noise(0.8, { vol: 0.12, lowpass: 700 });
+  },
+  rocket() {
+    noise(1.6, { vol: 0.35, lowpass: 900 });
+    tone(N(30), 1.6, { type: "sawtooth", vol: 0.18, slideTo: N(50) });
+  },
   throw() {
     noise(0.12, { vol: 0.12, highpass: 2500 });
     tone(N(70), 0.1, { type: "triangle", vol: 0.06, slideTo: N(90) });

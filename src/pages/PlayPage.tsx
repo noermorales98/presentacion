@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
+import { Bomb, ChevronsUp, Crosshair, Laptop } from "lucide-react";
 import "@fontsource/press-start-2p/index.css";
 import { QUESTIONS, type QuizPhase, type ResultRec } from "@/config/quiz";
 import { getTransport, SERVER_TS, type Transport } from "@/quiz/transport";
@@ -9,6 +10,13 @@ import { sfx, unlockAudio } from "@/quiz/audio";
 const PIXEL = { fontFamily: '"Press Start 2P", monospace' } as const;
 const COLORS = ["#e8453c", "#2f6fe4", "#f2b632", "#2bb673"];
 const TEXT = ["#fff", "#fff", "#2b2200", "#fff"];
+
+const ACTIONS = [
+  { id: "jump", label: "BRINCAR", cd: 500, color: "#2f6fe4", Icon: ChevronsUp },
+  { id: "bomb", label: "BOMBA", cd: 1700, color: "#e8453c", Icon: Bomb },
+  { id: "code", label: "PROGRAMAR", cd: 3000, color: "#2bb673", Icon: Laptop },
+  { id: "shoot", label: "DISPARAR", cd: 400, color: "#f2b632", Icon: Crosshair },
+] as const;
 
 interface GameState {
   phase: QuizPhase;
@@ -66,6 +74,9 @@ export default function PlayPage() {
   const [text, setText] = useState("");
   const [connected, setConnected] = useState(true);
   const lastPhase = useRef<string>("");
+  const [out, setOut] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const cdUntil = useRef<Record<string, number>>({});
 
   useEffect(() => {
     getTransport().then(setT).catch((e) => setErr(String(e?.message ?? e)));
@@ -82,6 +93,7 @@ export default function PlayPage() {
         if (s?.phase) setGame({ phase: s.phase, q: s.q ?? 0 });
       }),
       t.watch(`${base}/totals`, (v) => setTotals((v as typeof totals) ?? {})),
+      t.watch(`${base}/out/${pid}`, (v) => setOut(!!v)),
     ];
     return () => offs.forEach((f) => f());
   }, [t, code, pid]);
@@ -131,6 +143,25 @@ export default function PlayPage() {
     if (game.phase === "results") (myResult?.ok ? sfx.correct : sfx.wrong)();
     if (game.phase === "final" && myRank === 1) sfx.victory();
   }, [game, myResult, myRank]);
+
+  // reloj para los enfriamientos de los botones
+  useEffect(() => {
+    if (game.phase !== "boss") return;
+    const id = window.setInterval(() => setNow(Date.now()), 80);
+    return () => window.clearInterval(id);
+  }, [game.phase]);
+
+  const act = (a: (typeof ACTIONS)[number]) => {
+    if (!t || out) return;
+    const n = Date.now();
+    if (n < (cdUntil.current[a.id] ?? 0)) return;
+    cdUntil.current[a.id] = n + a.cd;
+    unlockAudio();
+    sfx.tap();
+    try { navigator.vibrate?.(25); } catch { /* ignorar */ }
+    void t.set(`rooms/${code}/actions/${pid}`, { a: a.id, n });
+    setNow(n);
+  };
 
   const join = () => {
     const n = name.trim().slice(0, 12);
@@ -257,12 +288,38 @@ export default function PlayPage() {
             <h2 className="animate-pulse text-[18px] leading-8">¡PELEA!</h2>
             <p className="text-[11px] leading-5 text-[#9a9ac0]">MIRA LA PANTALLA</p>
           </Center>
-        ) : game.phase === "boss" ? (
+        ) : game.phase === "travel" ? (
           <Center>
-            <Avatar seed={seed} pose="idle" />
-            <h2 className="animate-pulse text-[18px] leading-8 text-[#ff5a2a]">¡DINO JEFE!</h2>
-            <p className="text-[11px] leading-5 text-[#9a9ac0]">SOLO EL MEJOR PUEDE DERROTARLO. MIRA LA PANTALLA.</p>
+            <Avatar seed={seed} pose="cheer" />
+            <h2 className="animate-pulse text-[16px] leading-7">¡VIAJANDO!</h2>
+            <p className="text-[11px] leading-5 text-[#9a9ac0]">MIRA LA PANTALLA</p>
           </Center>
+        ) : game.phase === "boss" ? (
+          <div className="flex flex-1 flex-col gap-3 py-4">
+            <h2 className="text-center text-[15px] leading-6 text-[#ff5a2a]">¡VENCE AL DINO!</h2>
+            <p className="text-center text-[10px] leading-5 text-[#9a9ac0]">
+              {out ? "¡FUISTE ELIMINADO! MIRA LA PANTALLA" : "USA TUS PODERES CONTRA EL DINOSAURIO"}
+            </p>
+            <div className="grid flex-1 grid-cols-2 gap-3">
+              {ACTIONS.map((a) => {
+                const left = Math.max(0, (cdUntil.current[a.id] ?? 0) - now);
+                const pct = Math.min(1, left / a.cd);
+                return (
+                  <button
+                    key={a.id}
+                    onPointerDown={(e) => { e.preventDefault(); act(a); }}
+                    disabled={out}
+                    className="relative flex min-h-[130px] touch-manipulation select-none flex-col items-center justify-center gap-3 overflow-hidden border-4 border-white text-[12px] leading-5 text-white shadow-[0_6px_0_rgba(0,0,0,0.45)] active:translate-y-1 active:shadow-none disabled:opacity-35"
+                    style={{ background: a.color, color: a.id === "shoot" ? "#2b2200" : "#fff" }}
+                  >
+                    <a.Icon className="h-9 w-9" strokeWidth={2.4} />
+                    {a.label}
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/55" style={{ height: `${pct * 100}%` }} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         ) : game.phase === "results" ? (
           <Center>
             <Avatar seed={seed} pose={myResult?.ok ? "cheer" : "ko"} />

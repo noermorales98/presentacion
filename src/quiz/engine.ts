@@ -69,6 +69,10 @@ interface Ent {
   script: boolean;
   dashTo: number | null;
   speed: number;
+  immune: boolean;
+  doomed: boolean;
+  tStart: number; tvx: number; tvy: number; bx: number; by: number; bsc: number; ang: number;
+  codeT: number; cd: number[]; dodgeCd: number;
 }
 
 interface Particle {
@@ -78,8 +82,8 @@ interface Popup {
   text: string; x: number; y: number; vy: number; life: number; max: number; color: string; size: number;
 }
 interface Fx {
-  kind: "meteor" | "bomb" | "bolt" | "ring";
-  x: number; y: number; x0?: number; y0?: number; t: number; dur: number; r?: number;
+  kind: "meteor" | "bomb" | "bolt" | "ring" | "laser";
+  x: number; y: number; x0?: number; y0?: number; x1?: number; y1?: number; t: number; dur: number; r?: number;
 }
 interface Surf {
   x: number; w: number; h: number; kind: "plat" | "crate";
@@ -91,8 +95,8 @@ interface Dino {
 }
 interface Proj {
   x: number; y: number; vx: number; vy: number; g: number; life: number; rot: number;
-  kind: "rock" | "bomb" | "star" | "fire" | "snow" | "bossfire";
-  owner: string; tgt: string | null;
+  kind: "rock" | "bomb" | "star" | "fire" | "ice" | "arrow" | "grenade" | "bossfire" | "bullet" | "code";
+  owner: string; tgt: string | null; lethal?: boolean; txt?: string; power?: number;
 }
 interface Wave {
   x: number; dir: number; v: number; life: number; victim: string | null; hit: Set<string>;
@@ -104,7 +108,15 @@ const FONT = '"Press Start 2P", monospace';
 const FIGHT_MIN = 6.5;
 const G = 620; // gravedad de la arena
 const JUMP = 175;
-const THROW_KINDS: Proj["kind"][] = ["rock", "fire", "star", "rock", "snow", "fire", "snow", "star", "bomb", "rock"];
+type Weapon = "arrow" | "rock" | "star" | "fire" | "ice" | "bomb" | "grenade" | "laser" | "bolt";
+const WEAPONS: Weapon[][] = [
+  ["arrow", "rock", "grenade"], ["fire", "star", "laser"], ["bolt", "star", "ice"], ["arrow", "rock", "bomb"],
+  ["ice", "bomb", "laser"], ["fire", "grenade", "bolt"], ["ice", "arrow", "star"], ["laser", "bolt", "star"],
+  ["laser", "grenade", "ice"], ["arrow", "fire", "laser", "bolt", "grenade", "ice"],
+];
+const TRAVEL_TITLES = ["¡UNA NAVE ESPACIAL!", "¡UNA TORMENTA!", "¡UN AGUJERO NEGRO!", "¡A LAS MOTOS!", "¡ABORDEN EL BARCO!", "¡ERUPCIÓN!", "¡A LOS TRINEOS!", "¡PORTAL DE TELETRANSPORTE!", "¡AL COHETE!", "¡ALGO SE ACERCA...!"];
+const TRAVEL_DUR = [7.2, 7.2, 7.2, 7, 7.6, 7, 7, 7.4, 9.4, 6.4];
+const CODE_SNIPPETS = ["</>", "{ }", "if()", "0101", "git", "API", "=>", "[];", "npm", "<a>"];
 const PLAT_BASE = GROUND - 2;
 
 /** T-Rex gigante (mira a la derecha, se voltea al dibujar) — 22 columnas */
@@ -170,6 +182,8 @@ export class QuizEngine {
   level: Level = levelFor(0);
   ents = new Map<string, Ent>();
   onFightDone?: () => void;
+  onTravelDone?: () => void;
+  onEliminated?: (id: string) => void;
 
   private reqPhase: QuizPhase | null = null;
   private reqQ = -1;
@@ -200,8 +214,18 @@ export class QuizEngine {
   private lobbyRoar = 6;
   private lobbyRoarT = 0;
   private pendingBombHp: number | null = null;
+  private hot: { x: number; y: number; t: number; w: number }[] = [];
+  private killCam: { x: number; y: number } = { x: 400, y: 300 };
+  private killCamT = 0;
+  private lastKill = -9;
+  private travelKind = 0;
+  private travelDur = 7;
+  private travelNext = "";
+  private travelFlash = 0;
+  private quakeNext = 1;
+  private fadeIn = 0;
   private bossDone = false;
-  private bossStage: "none" | "enter" | "brawl" | "duel" | "dying" | "end" = "none";
+  private bossStage: "none" | "enter" | "brawl" | "three" | "duel" | "dying" | "end" = "none";
   private winnerId: string | null = null;
   private zoomPts: { x: number; y: number; z: number } | null = null;
   private cam = { z: 1, fx: W / 2, fy: H / 2 };
@@ -223,6 +247,8 @@ export class QuizEngine {
         return this.phaseT > 3.6;
       case "boss":
         return this.bossDone;
+      case "travel":
+        return false;
       case "final":
         return this.phaseT > 1.5;
     }
@@ -250,6 +276,7 @@ export class QuizEngine {
       koAt: 999, koState: 0, lieRot: 1, phase: this.rand() * 6.28, wanderAt: 0, hop: 0, nameRow: 0,
       arena: false, h: 0, vh: 0, vx: 0, surf: -1, aiT: 0, goalX: 0, target: null, platGoal: -1,
       stun: 0, atkCd: 0, atkT: 0, guardT: 0, script: false, dashTo: null, speed: 36 + this.rand() * 18,
+      immune: false, doomed: false, tStart: 0, tvx: 0, tvy: 0, bx: 0, by: 0, bsc: 1, ang: 0, codeT: 0, cd: [0, 0, 0, 0], dodgeCd: 0,
     };
     e.tx = e.x; e.ty = e.y;
     this.ents.set(id, e);
@@ -287,9 +314,11 @@ export class QuizEngine {
       if (data.results) this.results = data.results;
       return;
     }
+    const was = this.phase;
     this.phase = phase;
     this.q = q;
     this.level = phase === "final" ? levelFor(9) : phase === "boss" ? BOSS_LEVEL : levelFor(q);
+    this.hot = []; this.killCamT = 0;
     this.phaseT = 0;
     this.timers = [];
     this.fx = [];
@@ -309,12 +338,16 @@ export class QuizEngine {
       e.ex = e.ey = e.evx = e.evy = 0;
       e.tint = null; e.alpha = 1; e.koState = 0; e.pose = "idle"; e.hop = 0;
       e.arena = false; e.h = 0; e.vh = 0; e.vx = 0; e.script = false; e.dashTo = null; e.stun = 0;
+      e.immune = false; e.doomed = false; e.codeT = 0; e.scale = e.scale || 1;
+      if (was === "travel" && phase === "question") { e.x = -12 - this.rand() * 80; e.y = 330; }
     }
+    if (was === "travel" && phase !== "travel") this.fadeIn = 1;
     if (phase === "question") {
       this.banner(`NIVEL ${q + 1}`, this.level.name, 2.2);
       sfx.question();
       for (const e of this.ents.values()) { e.hasAnswered = false; e.answer = undefined; e.ok = false; e.fastest = false; e.pts = 0; }
     }
+    if (phase === "travel") this.startTravel(q);
     if (phase === "fight") {
       this.results = data.results ?? {};
       this.arena = this.makeArena(q);
@@ -393,7 +426,6 @@ export class QuizEngine {
 
   /* ───────────── pelea ───────────── */
   private startFight() {
-    const style = this.q % 5;
     let maxKo = 0;
     for (const e of this.ents.values()) {
       const r = this.results[e.id];
@@ -403,20 +435,25 @@ export class QuizEngine {
       e.hasAnswered = !!r || e.hasAnswered;
       if (e.hasAnswered) this.enterArena(e);
       if (e.hasAnswered && !e.ok) {
-        e.koAt = 2.2 + this.rand() * 4.4;
+        e.koAt = 2.8 + this.rand() * 5.2;
         maxKo = Math.max(maxKo, e.koAt);
-        this.after(e.koAt, () => this.startKo(e, style));
+        this.after(e.koAt, () => this.strikeKo(e));
       } else {
         e.koAt = 999;
       }
     }
-    this.after(Math.max(FIGHT_MIN, maxKo + 1.8), () => this.finishFight());
+    this.after(Math.max(FIGHT_MIN + 2, maxKo + 2.6), () => this.finishFight());
   }
 
   private startKo(e: Ent, style: number) {
     if (e.koState !== 0) return;
+    if (e.immune || (this.phase === "boss" && e.id === this.winnerId)) return;
     this.leaveArena(e);
+    e.doomed = false;
     const gx = e.x + e.ex, gy = e.y;
+    this.mark(gx, gy + e.ey, 2);
+    if (this.phase === "boss") this.onEliminated?.(e.id);
+    else if (this.phase === "fight" && this.time - this.lastKill > 1.6) { this.killCamT = 0.85; this.killCam = { x: gx, y: gy + e.ey }; this.slowT = Math.max(this.slowT, 0.5); this.lastKill = this.time; }
     e.lieRot = this.rand() < 0.5 ? 1 : 3;
     switch (style) {
       case 0: // puñetazo: sale volando
@@ -451,6 +488,16 @@ export class QuizEngine {
           this.fx.push({ kind: "ring", x: gx, y: gy, t: 0, dur: 0.35, r: 18 });
           e.evx = (this.rand() < 0.5 ? -1 : 1) * (30 + this.rand() * 40); e.evy = -(170 + this.rand() * 60);
         });
+        break;
+      case 6: // quemado (láser / fuego)
+        e.koState = 3; e.tint = "#ff8a2a"; e.evx = (this.rand() < 0.5 ? -1 : 1) * (30 + this.rand() * 30); e.evy = -(80 + this.rand() * 40);
+        this.burst(gx, gy - 8 + e.ey, 12, "#ff9a2a", 60);
+        this.after(0.45, () => { if (e.koState >= 3) e.tint = "#2a2a2a"; });
+        sfx.hit(); this.impact(2.5, 0.04);
+        break;
+      case 7: // explosión: sale volando alto
+        e.koState = 3; e.evx = (this.rand() < 0.5 ? -1 : 1) * (40 + this.rand() * 40); e.evy = -(170 + this.rand() * 60);
+        this.burst(gx, gy - 8 + e.ey, 10, "#ffcf3a", 70);
         break;
       case 5: // pisotón del dino
         e.koState = 4; e.tint = "#8a8a8a";
@@ -503,8 +550,13 @@ export class QuizEngine {
     this.camKick = Math.max(this.camKick, power * 0.012);
     if (stop) this.freezeT = Math.max(this.freezeT, stop);
   }
+  private mark(x: number, y: number, w = 1) {
+    this.hot.push({ x, y, t: this.time, w });
+    if (this.hot.length > 14) this.hot.shift();
+  }
   private knock(e: Ent, dir: number, vx: number, vh: number, stun: number) {
     e.vx = dir * vx; e.vh = vh; e.surf = -2; e.stun = stun; e.guardT = 0; e.aiT = 0;
+    this.mark(e.x, e.y - e.h, 0.6);
   }
   private randomArenaEnt(): Ent | null {
     const live = [...this.ents.values()].filter((o) => o.arena && o.koState === 0);
@@ -518,11 +570,28 @@ export class QuizEngine {
     d.flinch = Math.max(d.flinch, 0.18);
   }
 
-  private throwAt(e: Ent, tx: number, ty: number, tgt: string | null, kind?: Proj["kind"]) {
-    if (this.projs.length > 40) return;
-    const k = kind ?? (this.phase === "boss" ? (this.rand() < 0.4 ? "bomb" : "rock") : THROW_KINDS[this.q % THROW_KINDS.length]);
+  private pickWeapon(): Weapon {
+    const lvl = this.phase === "boss" ? 9 : this.q;
+    const list = WEAPONS[lvl % WEAPONS.length];
+    return list[Math.floor(this.rand() * list.length)];
+  }
+  private koStyleFor(w: string): number {
+    switch (w) {
+      case "arrow": case "rock": case "star": case "bullet": case "code": return 0;
+      case "fire": case "laser": return 6;
+      case "ice": return 4;
+      case "bomb": case "grenade": return 7;
+      default: return 2;
+    }
+  }
+
+  /** lanza un arma: proyectiles (flecha, piedra, estrella, fuego, hielo, bomba, granada) o rayos (láser, relámpago) */
+  private throwAt(e: Ent, tx: number, ty: number, tgt: string | null, kind?: Weapon, lethal = false) {
+    const k = kind ?? this.pickWeapon();
+    if (k === "laser" || k === "bolt") { this.zap(e, tgt, tx, ty, k, lethal); return; }
+    if (this.projs.length > 45) return;
     const sx = e.x + (tx < e.x ? -6 : 6) * (e.scale / 1.5 + 0.3), sy = e.y - e.h - 14 * e.scale;
-    const arcs = k === "rock" || k === "bomb" || k === "snow";
+    const arcs = k === "rock" || k === "bomb" || k === "grenade";
     const g = arcs ? 220 : 0;
     const dx = tx - sx, dy = ty - sy;
     let vx: number, vy: number;
@@ -530,20 +599,66 @@ export class QuizEngine {
       const ft = clamp(Math.hypot(dx, dy) / 150, 0.4, 1.0);
       vx = dx / ft; vy = (dy - 0.5 * g * ft * ft) / ft;
     } else {
-      const sp = k === "fire" ? 170 : 210, d = Math.hypot(dx, dy) || 1;
+      const sp = k === "arrow" ? 250 : k === "star" ? 220 : k === "fire" ? 175 : 190;
+      const d = Math.hypot(dx, dy) || 1;
       vx = (dx / d) * sp; vy = (dy / d) * sp;
     }
-    this.projs.push({ x: sx, y: sy, vx, vy, g, kind: k, owner: e.id, tgt, life: 2.2, rot: 0 });
+    this.projs.push({ x: sx, y: sy, vx, vy, g, kind: k, owner: e.id, tgt, life: 2.4, rot: 0, lethal });
     e.atkT = 0.25; e.flip = tx < e.x;
     sfx.throw();
   }
 
-  private spit(tgt: Ent) {
+  private zap(att: Ent, tgtId: string | null, tx: number, ty: number, kind: "laser" | "bolt", lethal: boolean) {
+    const victim = tgtId && tgtId !== "D" ? this.ents.get(tgtId) : undefined;
+    att.atkT = 0.35; att.flip = tx < att.x;
+    const ax = att.x, ay = att.y - att.h - 12 * att.scale;
+    if (kind === "laser") {
+      sfx.laser();
+      this.fx.push({ kind: "laser", x: ax, y: ay, x0: ax, y0: ay, x1: tx, y1: ty, t: 0, dur: 0.3 });
+      this.after(0.1, () => {
+        if (tgtId === "D" && this.dino.state === "fight") { this.dinoHit(0.012); this.burst(this.dino.x - 66, ty, 8, "#ff3b3b", 50); this.impact(1.2); return; }
+        if (!victim || victim.koState !== 0 || !victim.arena) return;
+        if (lethal) this.startKo(victim, 6);
+        else { this.knock(victim, Math.sign(tx - ax) || 1, 50, 40, 0.5); this.burst(tx, ty, 6, "#ff3b3b", 40); this.impact(1); }
+      });
+    } else {
+      this.burst(ax, ay - 10, 6, "#ffe55a", 30);
+      this.after(0.4, () => {
+        if (tgtId === "D" && this.dino.state === "fight") { this.fx.push({ kind: "bolt", x: this.dino.x - 70, y: ty, t: 0, dur: 0.3 }); sfx.lightning(); this.dinoHit(0.012); this.impact(2); return; }
+        if (!victim || victim.koState !== 0 || !victim.arena) return;
+        if (lethal) this.startKo(victim, 2);
+        else {
+          this.fx.push({ kind: "bolt", x: victim.x, y: victim.y - victim.h, t: 0, dur: 0.3 });
+          sfx.lightning();
+          this.knock(victim, Math.sign(victim.x - ax) || 1, 25, 55, 0.9);
+          this.impact(2); this.mark(victim.x, victim.y - victim.h, 1);
+        }
+      });
+    }
+  }
+
+  /** un rival visible elimina al jugador: nadie cae solo */
+  private strikeKo(v: Ent) {
+    if (v.koState !== 0 || v.immune) return;
+    v.doomed = true;
+    let att: Ent | null = null, best = 1e9;
+    for (const o of this.ents.values()) {
+      if (o === v || !o.arena || o.koState !== 0) continue;
+      const dd = Math.abs(o.x - v.x);
+      if (dd < best) { best = dd; att = o; }
+    }
+    if (!att) { this.startKo(v, 1); return; } // sin rivales: cae un meteorito
+    const w = this.pickWeapon();
+    this.throwAt(att, v.x, v.y - v.h - 8 * v.scale, v.id, w, true);
+    this.after(2.0, () => { if (v.koState === 0) this.startKo(v, this.koStyleFor(w)); });
+  }
+
+  private spit(tgt: Ent, lethal: boolean) {
     const d = this.dino;
     const sx = d.x - 88, sy = GROUND - 150, g = 160;
     const dx = tgt.x - sx, dy = tgt.y - tgt.h - 6 - sy;
     const ft = clamp(Math.hypot(dx, dy) / 150, 0.5, 1.1);
-    this.projs.push({ x: sx, y: sy, vx: dx / ft, vy: (dy - 0.5 * g * ft * ft) / ft, g, kind: "bossfire", owner: "D", tgt: tgt.id, life: 3, rot: 0 });
+    this.projs.push({ x: sx, y: sy, vx: dx / ft, vy: (dy - 0.5 * g * ft * ft) / ft, g, kind: "bossfire", owner: "D", tgt: tgt.id, life: 3, rot: 0, lethal });
     sfx.throw();
   }
 
@@ -553,13 +668,41 @@ export class QuizEngine {
     this.burst(x, y, 8, "#fff176", 50);
     sfx.explosion();
     this.impact(4, 0.04);
+    this.mark(x, y, 2);
+    const v = victimId ? this.ents.get(victimId) : undefined;
     for (const e of this.ents.values()) {
       if (!e.arena || e.koState !== 0 || e.script) continue;
       if (Math.abs(e.x - x) < r && Math.abs(e.y - e.h - y) < r + 10) {
-        if (victimId === e.id) this.startKo(e, 0);
+        if (victimId === e.id) this.startKo(e, 7);
         else this.knock(e, Math.sign(e.x - x) || 1, 85, 90, 0.5);
       }
     }
+    if (v && v.koState === 0 && v.arena && Math.hypot(v.x - x, v.y - v.h - y) < r * 2.4) this.startKo(v, 7);
+  }
+
+  private weaponHit(e: Ent, p: Proj) {
+    const dir = Math.sign(p.vx) || 1;
+    switch (p.kind) {
+      case "ice":
+        this.knock(e, dir, 35, 35, 0.9);
+        e.tint = "#9fe8ff"; this.after(0.7, () => { if (e.koState === 0) e.tint = null; });
+        this.burst(p.x, p.y, 8, "#e8fbff", 40); sfx.freeze();
+        break;
+      case "fire":
+        this.knock(e, dir, 50, 45, 0.6);
+        this.burst(p.x, p.y, 8, "#ff9a2a", 50);
+        break;
+      case "arrow":
+        this.knock(e, dir, 75, 40, 0.5);
+        this.burst(p.x, p.y, 4, "#d8c08a", 35);
+        break;
+      default:
+        this.knock(e, dir, 55, 50, 0.4);
+        this.burst(p.x, p.y, 5, "#fff176", 40);
+    }
+    if (this.lastHitSfx <= 0) { sfx.hitSmall(); this.lastHitSfx = 0.07; }
+    this.impact(0.9);
+    this.mark(p.x, p.y, 1);
   }
 
   private updateProjs(dt: number) {
@@ -567,22 +710,32 @@ export class QuizEngine {
     const dinoAlive = this.phase === "boss" && (d.state === "fight" || d.state === "enter");
     for (const p of this.projs) {
       p.life -= dt;
+      // proyectiles letales siguen a su víctima
+      if (p.lethal && p.tgt && p.g === 0) {
+        const v = this.ents.get(p.tgt);
+        if (v && v.koState === 0) {
+          const dx = v.x - p.x, dy = v.y - v.h - 8 * v.scale - p.y, dd = Math.hypot(dx, dy) || 1;
+          const sp = Math.hypot(p.vx, p.vy) || 200;
+          p.vx += ((dx / dd) * sp - p.vx) * Math.min(1, dt * 9);
+          p.vy += ((dy / dd) * sp - p.vy) * Math.min(1, dt * 9);
+        }
+      }
       p.vy += p.g * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.rot += dt * 14;
-      if ((p.kind === "fire" || p.kind === "bossfire" || p.kind === "bomb") && this.rand() < 0.7)
-        this.particles.push({ x: p.x, y: p.y, vx: (this.rand() - 0.5) * 20, vy: (this.rand() - 0.5) * 20, life: 0.3, max: 0.3, size: 2, color: p.kind === "bomb" ? "#9a9a9a" : "#ffb347", grav: 0 });
+      if ((p.kind === "fire" || p.kind === "bossfire" || p.kind === "bomb" || p.kind === "grenade" || p.kind === "ice") && this.rand() < 0.7)
+        this.particles.push({ x: p.x, y: p.y, vx: (this.rand() - 0.5) * 20, vy: (this.rand() - 0.5) * 20, life: 0.3, max: 0.3, size: 2, color: p.kind === "ice" ? "#bfeaff" : p.kind === "bomb" || p.kind === "grenade" ? "#9a9a9a" : "#ffb347", grav: 0 });
       let done = false;
       if (p.owner !== "D" && dinoAlive && p.x > d.x - 72 && p.x < d.x + 40 && p.y > d.y - 170 && p.y < d.y) {
-        if (p.kind === "bomb") this.explode(p.x, p.y, 16, null);
+        if (p.kind === "bomb" || p.kind === "grenade") this.explode(p.x, p.y, 16, null);
         else this.burst(p.x, p.y, 6, "#fff176", 50);
         d.flash = 0.12; d.flinch = 0.2;
         if (p.owner === this.winnerId && this.pendingBombHp !== null && this.bossStage === "duel") {
           const w = this.ents.get(p.owner), hp = this.pendingBombHp;
           this.pendingBombHp = null;
           if (w) this.strikeDino(hp, w, true);
-        } else this.dinoHit(0.01);
+        } else this.dinoHit(p.power ?? 0.01);
         this.impact(1.5, 0.03);
         done = true;
       }
@@ -592,20 +745,17 @@ export class QuizEngine {
           if (p.owner !== "D" && this.phase === "boss") continue;
           const cy = e.y - e.h - 8 * e.scale;
           if (Math.abs(p.x - e.x) < 5 * e.scale + 1 && Math.abs(p.y - cy) < 8 * e.scale) {
-            if (p.kind === "bomb" || p.kind === "bossfire") this.explode(p.x, p.y, p.kind === "bossfire" ? 16 : 14, p.tgt);
-            else {
-              this.knock(e, Math.sign(p.vx) || 1, 55, 50, 0.35);
-              this.burst(p.x, p.y, 5, p.kind === "snow" ? "#ffffff" : p.kind === "fire" ? "#ff9a2a" : "#fff176", 40);
-              if (this.lastHitSfx <= 0) { sfx.hitSmall(); this.lastHitSfx = 0.07; }
-              this.impact(0.8);
-            }
+            const lethalHit = p.lethal && p.tgt === e.id;
+            if (p.kind === "bomb" || p.kind === "grenade" || p.kind === "bossfire") this.explode(p.x, p.y, p.kind === "bossfire" ? 16 : 18, p.lethal ? p.tgt : null);
+            else if (lethalHit) this.startKo(e, this.koStyleFor(p.kind));
+            else this.weaponHit(e, p);
             done = true;
             break;
           }
         }
       }
       if (!done && p.y >= GROUND - 1 && p.vy > 0) {
-        if (p.kind === "bomb" || p.kind === "bossfire") this.explode(p.x, GROUND - 2, p.kind === "bossfire" ? 16 : 14, p.tgt);
+        if (p.kind === "bomb" || p.kind === "grenade" || p.kind === "bossfire") this.explode(p.x, GROUND - 2, p.kind === "bossfire" ? 16 : 18, p.lethal ? p.tgt : null);
         else this.burst(p.x, GROUND - 1, 3, "#d0c8b0", 25);
         done = true;
       }
@@ -668,7 +818,9 @@ export class QuizEngine {
 
   private startBoss() {
     const ents = [...this.ents.values()];
-    const win = this.ranking[0] ? this.ents.get(this.ranking[0].id) : ents[0];
+    const top3 = this.ranking.slice(0, 3).map((r) => this.ents.get(r.id)).filter((x): x is Ent => !!x);
+    if (!top3.length && ents[0]) top3.push(ents[0]);
+    const win = top3[0];
     this.winnerId = win?.id ?? null;
     this.pendingBombHp = null;
     this.dino = this.newDino("enter");
@@ -681,25 +833,42 @@ export class QuizEngine {
       e.ok = e.id === this.winnerId;
       e.koState = 0;
       this.enterArena(e);
+      e.immune = top3.includes(e);
+      e.doomed = false;
       e.x = 20 + ((i * 53) % 330);
       e.target = "D";
       e.speed = 38 + this.rand() * 22;
     });
-    const losers = ents.filter((e) => e.id !== this.winnerId).sort(() => this.rand() - 0.5);
+    const losers = ents.filter((e) => !e.immune).sort(() => this.rand() - 0.5);
     const t0 = 4.4, span = Math.min(8, 3 + losers.length * 0.35);
     losers.forEach((e, i) => {
       const tk = t0 + ((i + this.rand() * 0.8) / Math.max(1, losers.length)) * span;
       e.koAt = tk;
-      this.after(tk - 0.9, () => { if (e.koState === 0 && this.dino.state === "fight") this.dinoAttackOn(e); });
+      this.after(tk - 0.9, () => { if (e.koState === 0 && this.dino.state === "fight") { e.doomed = true; this.dinoAttackOn(e); } });
       this.after(tk + 1.6, () => { if (e.koState === 0) this.startKo(e, 0); });
     });
     this.after(3.0, () => { this.dino.state = "fight"; this.bossStage = "brawl"; this.dinoLoop(); });
-    const tDuel = t0 + (losers.length ? span : 0) + 3.4;
-    this.after(tDuel, () => this.bossDuel());
+    const tThree = t0 + (losers.length ? span : 0) + 2.6;
+    this.after(tThree, () => this.bossThree(top3));
+  }
+
+  /** quedan los 3 mejores; el dino elimina a los dos últimos hasta que solo quede uno */
+  private bossThree(top3: Ent[]) {
+    this.bossStage = "three";
+    const rest = top3.slice(1).reverse(); // primero el 3.º, luego el 2.º
+    if (rest.length) this.banner(`¡QUEDAN ${top3.length}!`, "SOLO UNO PODRÁ DERROTAR AL DINO", 2.4);
+    rest.forEach((v, i) => {
+      const at = 2.6 + i * 3.0;
+      this.after(at - 0.9, () => { if (v.koState === 0) { v.immune = false; v.doomed = true; this.dinoAttackOn(v); } });
+      this.after(at + 1.8, () => { if (v.koState === 0) { v.immune = false; this.startKo(v, 0); } });
+    });
+    const lastKo = rest.length ? 2.6 + (rest.length - 1) * 3.0 + 1.9 : 0.5;
+    if (rest.length) this.after(lastKo + 0.3, () => this.banner("¡SOLO UNO EN PIE!", "", 2));
+    this.after(lastKo + 2.6, () => this.bossDuel());
   }
 
   private dinoLoop() {
-    if (this.bossStage !== "brawl") return;
+    if (this.bossStage !== "brawl" && this.bossStage !== "three") return;
     const kinds = ["stomp", "fire", "tail", "roar"] as const;
     this.dinoAttack(kinds[Math.floor(this.rand() * kinds.length)], null);
     this.after(2.2 + this.rand() * 1.6, () => this.dinoLoop());
@@ -742,7 +911,7 @@ export class QuizEngine {
       this.after(0.35, () => {
         if (d.state !== "fight") return;
         const tgt = victim ?? this.randomArenaEnt();
-        if (tgt) this.spit(tgt);
+        if (tgt) this.spit(tgt, !!victim);
       });
     } else {
       d.roarT = 1.0; sfx.roar(); this.windT = 1.0; this.impact(3);
@@ -756,7 +925,7 @@ export class QuizEngine {
     this.bossStage = "duel";
     this.banner("¡UNO CONTRA EL DINO!", w ? w.name.toUpperCase() : "", 2.2);
     if (!w) { this.after(1, () => this.bossFinish()); return; }
-    w.script = true; w.target = null; w.stun = 0; w.vx = 0; w.dashTo = null;
+    w.script = true; w.target = null; w.stun = 0; w.vx = 0; w.dashTo = null; w.immune = true;
     const hpAfter = [0.78, 0.55, 0.34, 0.14, 0];
     const kinds = ["stomp", "fire", "tail", "fire", "stomp"] as const;
     let t = 1.3;
@@ -768,7 +937,7 @@ export class QuizEngine {
       else this.after(start + 0.6, () => { w.dashTo = Math.max(30, w.x - 38); });
       const c0 = start + 1.6;
       if (k === 1 || k === 3) {
-        this.after(c0, () => { this.pendingBombHp = hp; this.throwAt(w, this.dino.x - 40, GROUND - 90, "D", "bomb"); });
+        this.after(c0, () => { this.pendingBombHp = hp; this.throwAt(w, this.dino.x - 40, GROUND - 90, "D", "grenade"); });
       } else {
         this.after(c0, () => { w.dashTo = this.dino.x - 66; });
         this.after(c0 + 0.32, () => { w.atkT = 0.3; w.vh = 70; w.surf = -2; sfx.jump(); });
@@ -819,10 +988,52 @@ export class QuizEngine {
     });
   }
 
+  /** acciones desde el celular durante la batalla con el dino */
+  playerAction(id: string, a: string) {
+    if (this.phase !== "boss") return;
+    const e = this.ents.get(id);
+    const d = this.dino;
+    if (!e || !e.arena || e.koState !== 0 || e.script || e.stun > 0) return;
+    if (d.state !== "fight" && d.state !== "enter") return;
+    const idx = ["jump", "bomb", "code", "shoot"].indexOf(a);
+    if (idx < 0) return;
+    const CD = [0.5, 1.7, 3.0, 0.4];
+    if (this.time < e.cd[idx]) return;
+    e.cd[idx] = this.time + CD[idx];
+    e.flip = false;
+    this.mark(e.x, e.y - e.h, 0.8);
+    if (a === "jump") {
+      if (e.vh === 0 || e.surf !== -2) { e.vh = JUMP; e.surf = -2; sfx.jump(); this.burst(e.x, e.y - e.h, 3, "#cfc9b8", 22); }
+    } else if (a === "bomb") {
+      this.throwAt(e, d.x - 50, GROUND - 40 - this.rand() * 60, "D", "grenade");
+      const p = this.projs[this.projs.length - 1];
+      if (p && p.owner === e.id) p.power = 0.03;
+      this.popup("¡BOMBA!", e.x, e.y - e.h - 26 * e.scale, "#ffd84a", 10, 0.8);
+    } else if (a === "shoot") {
+      e.atkT = 0.18;
+      this.projs.push({ x: e.x + 8 * e.scale, y: e.y - e.h - 9 * e.scale, vx: 330, vy: (this.rand() - 0.5) * 12, g: 0, kind: "bullet", owner: e.id, tgt: "D", life: 1.4, rot: 0, power: 0.008 });
+      this.burst(e.x + 10 * e.scale, e.y - e.h - 9 * e.scale, 3, "#ffe55a", 30);
+      sfx.hitSmall();
+    } else {
+      e.codeT = 0.9; e.vx = 0;
+      sfx.tick();
+      this.popup("</> PROGRAMANDO", e.x, e.y - e.h - 26 * e.scale, "#39ff88", 9, 0.9);
+      for (let i = 0; i < 3; i++) {
+        this.after(0.9 + i * 0.16, () => {
+          if (e.koState !== 0 || this.phase !== "boss" || this.projs.length > 60) return;
+          const sx = e.x + 8 * e.scale, sy = e.y - e.h - 12 * e.scale;
+          const dx = d.x - 66 - sx, dy = GROUND - 60 - this.rand() * 50 - sy, dd = Math.hypot(dx, dy) || 1;
+          this.projs.push({ x: sx, y: sy, vx: (dx / dd) * 170, vy: (dy / dd) * 170, g: 0, kind: "code", owner: e.id, tgt: "D", life: 2.4, rot: 0, txt: CODE_SNIPPETS[Math.floor(this.rand() * CODE_SNIPPETS.length)], power: 0.013 });
+          sfx.throw();
+        });
+      }
+    }
+  }
+
   private bossFinish() {
     this.bossStage = "end";
     const w = this.winnerId ? this.ents.get(this.winnerId) : undefined;
-    if (w) { w.script = false; w.dashTo = null; w.target = null; }
+    if (w) { w.script = false; w.dashTo = null; w.target = null; w.immune = true; }
     this.after(1.6, () => { this.bossDone = true; });
   }
 
@@ -847,10 +1058,280 @@ export class QuizEngine {
     });
   }
 
+  /* ───────────── viajes entre niveles ───────────── */
+  private startTravel(k: number) {
+    this.travelKind = k;
+    this.travelDur = TRAVEL_DUR[k % 10];
+    this.quakeNext = 1.0;
+    const list = [...this.ents.values()].sort((a, b) => a.x - b.x || (a.id < b.id ? -1 : 1));
+    const n = list.length, sc = n <= 40 ? 2 : 1;
+    const perRow = Math.max(1, Math.min(n, sc === 2 ? 9 : 18));
+    list.forEach((e, i) => {
+      const row = Math.floor(i / perRow), col = i % perRow, rc = Math.min(perRow, n - row * perRow);
+      e.scale = sc; e.bsc = sc; e.koState = 0; e.alpha = 1; e.script = false; e.arena = false; e.tint = null; e.hop = 0;
+      e.tx = 400 + (col - (rc - 1) / 2) * 13 * sc;
+      e.ty = GROUND - 4 - row * 9 * sc;
+      e.bx = e.tx; e.by = e.ty;
+      e.tStart = 1.9 + (i / Math.max(1, n - 1)) * 1.4;
+      e.ang = this.rand() * 6.28; e.tvx = 0; e.tvy = 0;
+    });
+    this.travelNext = k < 9 ? `RUMBO AL NIVEL ${k + 2}: ${levelFor(k + 1).name}` : "EL DINO ESTÁ CERCA...";
+    this.banner(TRAVEL_TITLES[k % 10], this.travelNext, 2.6);
+    switch (k) {
+      case 0: this.after(1.2, () => sfx.hum()); this.after(5.4, () => sfx.whoosh()); break;
+      case 1: [2.0, 3.3, 4.6].forEach((t) => this.after(t, () => { sfx.lightning(); this.impact(3); })); break;
+      case 2: this.after(0.6, () => sfx.hum()); this.after(6.0, () => { sfx.explosion(); this.impact(5); }); break;
+      case 3: this.after(1.0, () => sfx.engine()); this.after(2.8, () => sfx.engine()); break;
+      case 4: this.after(1.4, () => sfx.whoosh()); this.after(5.6, () => sfx.whoosh()); break;
+      case 5:
+        for (let i = 0; i < 7; i++) this.after(0.5 + i * 0.25, () => this.impact(2.5));
+        this.after(2.0, () => { sfx.explosion(); this.impact(9); this.travelFlash = 1; });
+        break;
+      case 6: this.after(1.0, () => sfx.whoosh()); break;
+      case 7: this.after(1.0, () => sfx.unlock()); break;
+      case 8:
+        this.after(5.8, () => { this.popup("3", 400, 170, "#ffffff", 40, 0.6); sfx.tick(); });
+        this.after(6.4, () => { this.popup("2", 400, 170, "#ffffff", 40, 0.6); sfx.tick(); });
+        this.after(7.0, () => { this.popup("1", 400, 170, "#ffffff", 40, 0.6); sfx.tick(); });
+        this.after(7.6, () => { sfx.rocket(); this.impact(8); });
+        break;
+      default: break;
+    }
+    this.after(this.travelDur, () => this.onTravelDone?.());
+  }
+
+  private shipX(T: number) {
+    if (T < 2.2) { const u = T / 2.2; return -170 + 570 * (1 - Math.pow(1 - u, 2)); }
+    if (T < 5.6) return 400 + Math.sin(T * 2) * 1.5;
+    return 400 + 170 * Math.pow(T - 5.6, 1.6);
+  }
+  private tornadoX(T: number) {
+    if (T < 0.8) return W + 90;
+    if (T < 2.6) return W + 90 + (330 - (W + 90)) * ((T - 0.8) / 1.8);
+    if (T < 4.6) return 330;
+    return 330 + (-120 - 330) * ((T - 4.6) / 2.6);
+  }
+
+  /** guion de cada viaje; devuelve true si controla al personaje */
+  private travelStep(e: Ent, dt: number): boolean {
+    const T = this.phaseT, k = this.travelKind;
+    const d = T - e.tStart;
+    const hh = hashStr(e.id);
+    switch (k) {
+      case 0: { // nave espacial: rayo tractor
+        if (d < 0) return false;
+        const ux = 400 + Math.sin(T * 1.3) * 30;
+        e.ey = -d * 120;
+        e.x += (ux - e.x) * Math.min(1, dt * 1.4);
+        e.pose = "cheer"; e.flip = false;
+        if (e.y + e.ey < 96) e.alpha = Math.max(0, e.alpha - dt * 5);
+        return true;
+      }
+      case 1: { // tormenta: tornado
+        if (d < 0) return false;
+        e.ang += dt * (7 + (hh % 5));
+        const rr = Math.max(5, 30 - d * 9);
+        e.x = this.tornadoX(T) + Math.cos(e.ang) * rr;
+        e.ey = -(d * 42) + Math.sin(e.ang) * 3;
+        e.pose = "dizzy"; e.flip = Math.cos(e.ang) > 0;
+        if (e.ey < -170) e.alpha = Math.max(0, e.alpha - dt * 3);
+        return true;
+      }
+      case 2: { // agujero negro
+        if (d < 0) return false;
+        const u = clamp(d / 2.4, 0, 1);
+        const r0 = Math.hypot(e.bx - 400, e.by - 150);
+        const a0 = Math.atan2(e.by - 150, e.bx - 400) + u * 7;
+        const r = r0 * Math.pow(1 - u, 1.3);
+        e.x = 400 + Math.cos(a0) * r; e.y = 150 + Math.sin(a0) * r * 0.7; e.ey = 0;
+        e.scale = Math.max(0.3, e.bsc * (1 - u * 0.85)); e.alpha = 1 - u * u; e.pose = "dizzy";
+        return true;
+      }
+      case 3: case 6: { // motos / trineos
+        if (d < -0.7) return false;
+        if (d < 0) { e.ey = -3; e.pose = "idle"; return true; }
+        const moto = k === 3;
+        e.x = e.bx + (moto ? 80 : 55) * d + (moto ? 70 : 45) * d * d;
+        e.ey = moto ? -3 - (d < 0.6 ? Math.sin(d * 5.2) * 5 : 0) : -2 + Math.sin(T * 9 + e.ang) * 0.8;
+        e.pose = "idle"; e.flip = false;
+        if (e.x > W + 40) e.alpha = 0;
+        if (this.rand() < dt * 6) this.particles.push({ x: e.x - 6, y: e.y - 1, vx: -30, vy: -10, life: 0.4, max: 0.4, size: 2, color: moto ? "#cfc9b8" : "#ffffff", grav: 30 });
+        return true;
+      }
+      case 4: { // barco
+        const sx = this.shipX(T), off = ((hh % 11) - 5) * 11, deck = GROUND - 14 + (hh % 3) * 2;
+        const tj = 2.4 + (e.tStart - 1.9) * 1.1;
+        const dj = T - tj;
+        if (dj < 0) return false;
+        const u = clamp(dj / 0.9, 0, 1);
+        if (u < 1) {
+          e.x = e.bx + (sx + off - e.bx) * u; e.y = e.by + (deck - e.by) * u; e.ey = -Math.sin(u * Math.PI) * 18; e.pose = "guard";
+        } else {
+          e.x = sx + off; e.y = deck; e.ey = Math.sin(T * 3 + e.ang) * 0.8; e.pose = "cheer";
+        }
+        e.flip = false;
+        return true;
+      }
+      case 5: { // volcán: salen disparados
+        const dl = T - (2.1 + (e.tStart - 1.9) * 1.4);
+        if (dl < 0) return false;
+        if (e.tvy === 0) { e.tvx = 40 + (hh % 100); e.tvy = -(240 + (hh % 90)); this.burst(e.x, e.y, 8, "#ff7a1a", 70); }
+        e.tvy += 330 * dt; e.x += e.tvx * dt; e.y += e.tvy * dt; e.ey = 0; e.pose = "cheer"; e.flip = false;
+        if (e.y > H + 40 || e.x > W + 40) e.alpha = 0;
+        return true;
+      }
+      case 7: { // portal de teletransporte
+        if (d < 0) return false;
+        e.x += 140 * dt; e.y += (GROUND - 6 - e.y) * Math.min(1, dt * 3); e.ey = 0; e.pose = "walk"; e.flip = false;
+        if (e.x >= 712) {
+          if (e.alpha > 0) { e.alpha = 0; this.burst(712, GROUND - 30, 10, hh % 2 ? "#00f0ff" : "#ff2bd6", 70); }
+        } else if (e.x > 690) e.alpha = 0.5 + 0.5 * Math.sin(T * 50);
+        return true;
+      }
+      case 8: { // cohete
+        if (d < 0) return false;
+        const dx = 400 - e.x;
+        if (e.alpha > 0 && Math.abs(dx) > 4) {
+          e.x += Math.sign(dx) * Math.min(Math.abs(dx), 95 * dt);
+          e.y += (GROUND - 3 - e.y) * Math.min(1, dt * 3); e.pose = "walk"; e.flip = dx < 0;
+        } else e.alpha = 0;
+        e.ey = 0;
+        return true;
+      }
+      default: { // terremoto
+        if (T < 1.2) return false;
+        const inten = clamp(T / 5, 0.3, 1);
+        e.x = e.bx + Math.sin(T * 38 + e.ang) * 1.2 * inten;
+        e.y = e.by; e.ey = -Math.abs(Math.sin(T * 8 + e.ang)) * 2.5 * inten;
+        e.pose = hh % 2 ? "guard" : "dizzy"; e.flip = false;
+        return true;
+      }
+    }
+  }
+
+  private updateTravelProps(dt: number) {
+    const T = this.phaseT, k = this.travelKind;
+    if (k === 0 && T > 1.5 && T < 5.4 && this.rand() < dt * 30)
+      this.particles.push({ x: 400 + (this.rand() - 0.5) * 70, y: GROUND - this.rand() * 230, vx: 0, vy: -40, life: 0.6, max: 0.6, size: 2, color: "#fff9a0", grav: 0 });
+    if (k === 1 && this.rand() < dt * 25) {
+      const tx = this.tornadoX(T);
+      this.particles.push({ x: tx + (this.rand() - 0.5) * 40, y: GROUND - this.rand() * 40, vx: -60, vy: -50, life: 0.6, max: 0.6, size: 2, color: "#8a7a60", grav: 0 });
+    }
+    if (k === 5 && T > 2.0 && T < 6.2) {
+      for (let i = 0; i < 2; i++)
+        this.particles.push({ x: 600 + (this.rand() - 0.5) * 30, y: GROUND - 190, vx: (this.rand() - 0.5) * 120, vy: -150 - this.rand() * 110, life: 1.4, max: 1.4, size: 2, color: ["#ff5a2a", "#ffb347", "#ffd84a"][Math.floor(this.rand() * 3)], grav: 260 });
+    }
+    if (k === 7 && T > 1 && this.rand() < dt * 20)
+      this.particles.push({ x: 712 + (this.rand() - 0.5) * 20, y: GROUND - 36 + (this.rand() - 0.5) * 60, vx: 40, vy: -10, life: 0.5, max: 0.5, size: 2, color: this.rand() < 0.5 ? "#00f0ff" : "#ff2bd6", grav: 0 });
+    if (k === 8 && T > 7.4 && T < 9.3) {
+      const ry = T > 7.6 ? (T - 7.6) * (T - 7.6) * 120 : 0;
+      for (let i = 0; i < 3; i++)
+        this.particles.push({ x: 400 + (this.rand() - 0.5) * 16, y: GROUND - ry + 4, vx: (this.rand() - 0.5) * 60, vy: 90 + this.rand() * 80, life: 0.6, max: 0.6, size: 3, color: this.rand() < 0.5 ? "#ffb347" : "#fff176", grav: 0 });
+    }
+    if (k === 9) {
+      if (this.rand() < dt * 30) this.particles.push({ x: this.rand() * W, y: -4, vx: 0, vy: 50, life: 3, max: 3, size: this.rand() < 0.2 ? 4 : 2, color: "#4a3a30", grav: 200 });
+      if (T > this.quakeNext) {
+        this.quakeNext += Math.max(0.45, 0.95 - T * 0.07);
+        this.impact(2.5 + T * 0.9); sfx.stomp();
+      }
+    }
+    this.travelFlash = Math.max(0, this.travelFlash - dt * 1.6);
+  }
+
+  private drawTravelBack(c: CanvasRenderingContext2D) {
+    const T = this.phaseT, k = this.travelKind;
+    const R = (x: number, y: number, w: number, h: number, col: string) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+    if (k === 0) {
+      const u = clamp(T / 1.4, 0, 1);
+      let ux = 400 + Math.sin(T * 1.3) * 30, uy = -40 + 110 * (1 - Math.pow(1 - u, 2));
+      if (T > 5.4) { ux += (T - 5.4) * 260; uy -= (T - 5.4) * 90; }
+      if (T > 1.5 && T < 5.4) {
+        c.fillStyle = `rgba(255,255,160,${0.2 + 0.07 * Math.sin(T * 12)})`;
+        c.beginPath(); c.moveTo(ux - 12, uy + 14); c.lineTo(ux + 12, uy + 14); c.lineTo(ux + 56, GROUND + 6); c.lineTo(ux - 56, GROUND + 6); c.closePath(); c.fill();
+      }
+      R(ux - 9, uy - 11, 18, 9, "#9be7ff"); R(ux - 6, uy - 14, 12, 4, "#9be7ff");
+      R(ux - 28, uy - 3, 56, 9, "#b8b8c8"); R(ux - 20, uy + 6, 40, 5, "#8a8aa0");
+      for (let i = 0; i < 6; i++) R(ux - 24 + i * 9, uy + 1, 4, 3, Math.floor(T * 6 + i) % 2 ? "#ffd84a" : "#e8453c");
+    } else if (k === 1) {
+      c.fillStyle = `rgba(15,15,35,${Math.min(0.58, T * 0.3)})`; c.fillRect(0, 0, W, H);
+      for (let i = 0; i < 9; i++) R(i * 100 - 30 + Math.sin(T * 0.6 + i) * 8, 6 + (i % 3) * 14, 130, 30 + (i % 2) * 8, "#262638");
+      const tx = this.tornadoX(T);
+      for (let y = GROUND; y > 30; y -= 3) {
+        const w = 8 + (GROUND - y) * 0.32;
+        R(tx - w / 2 + Math.sin((GROUND - y) * 0.09 + T * 9) * 6, y, w, 3, (Math.floor(y / 3) + Math.floor(T * 10)) % 2 ? "#7a7a92" : "#5a5a72");
+      }
+    } else if (k === 2) {
+      const grow = clamp((T - 0.6) * 30, 0, 36), shrink = T > 6 ? Math.max(0, 1 - (T - 6) * 3) : 1;
+      const r = grow * shrink;
+      if (r > 1) {
+        c.fillStyle = "rgba(122,60,255,0.25)"; c.beginPath(); c.arc(400, 150, r + 16, 0, 6.3); c.fill();
+        c.fillStyle = "#5a2aa0"; c.beginPath(); c.arc(400, 150, r + 7, 0, 6.3); c.fill();
+        c.fillStyle = "#000"; c.beginPath(); c.arc(400, 150, r, 0, 6.3); c.fill();
+        for (let i = 0; i < 18; i++) { const a = T * 3 + i * 0.35; R(400 + Math.cos(a) * (r + 12), 150 + Math.sin(a) * (r + 12) * 0.5, 3, 2, "#c8a0ff"); }
+      }
+    } else if (k === 4) {
+      R(0, GROUND - 2, W, 16, "#2f6fe4");
+      for (let x = 0; x < W; x += 16) R(x + ((T * 20) % 16), GROUND - 1 + (Math.floor(x / 16) % 2) * 2, 8, 2, "#8fd3ff");
+      const sx = this.shipX(T);
+      R(sx - 80, GROUND - 10, 160, 12, "#7a4a1f"); R(sx - 90, GROUND - 17, 18, 9, "#7a4a1f"); R(sx + 70, GROUND - 19, 22, 11, "#7a4a1f");
+      R(sx - 80, GROUND - 12, 160, 3, "#b8803f");
+      R(sx - 2, GROUND - 104, 4, 92, "#5a3a1f"); R(sx - 34, GROUND - 100, 30, 52, "#f0f0f0"); R(sx + 4, GROUND - 92, 24, 40, "#e8e8e8"); R(sx + 2, GROUND - 106, 15, 8, "#e8453c");
+    } else if (k === 5) {
+      for (let y = GROUND; y > GROUND - 190; y -= 3) { const hw = 150 - (GROUND - y) * 0.55; R(600 - hw, y, hw * 2, 3, "#3a1a14"); }
+      R(560, GROUND - 190, 80, 6, T > 2.0 ? "#ff5a2a" : "#7a2a14");
+      if (T > 2.0) for (let i = 0; i < 5; i++) R(588 + i * 7 + Math.sin(T * 6 + i) * 3, GROUND - 188 + i * 26, 3, 40, "#ff7a1a");
+    } else if (k === 7) {
+      const r = clamp((T - 1) * 30, 0, 38);
+      if (r > 1) {
+        c.fillStyle = "#120022"; c.beginPath(); c.ellipse(712, GROUND - 36, r * 0.55, r, 0, 0, 6.3); c.fill();
+        c.lineWidth = 3; c.strokeStyle = Math.floor(T * 8) % 2 ? "#00f0ff" : "#ff2bd6";
+        c.beginPath(); c.ellipse(712, GROUND - 36, r * 0.55 + 2, r + 2, 0, 0, 6.3); c.stroke();
+      }
+    } else if (k === 8) {
+      const ry = T > 7.6 ? -((T - 7.6) * (T - 7.6) * 120) : 0;
+      const x = 400 + (T > 7.2 ? Math.sin(T * 60) * 1.2 : 0);
+      R(x - 14, GROUND - 100 + ry, 28, 92, "#f0f0f5"); R(x - 10, GROUND - 112 + ry, 20, 12, "#f0f0f5"); R(x - 6, GROUND - 120 + ry, 12, 8, "#f0f0f5"); R(x - 2, GROUND - 126 + ry, 4, 6, "#e8453c");
+      R(x - 5, GROUND - 80 + ry, 10, 10, "#2f6fe4"); R(x - 14, GROUND - 50 + ry, 28, 6, "#e8453c");
+      R(x - 24, GROUND - 30 + ry, 10, 28, "#e8453c"); R(x + 14, GROUND - 30 + ry, 10, 28, "#e8453c");
+      if (ry === 0) R(x - 4, GROUND - 14, 8, 12, "#555");
+      if (T > 7.2) { R(x - 8, GROUND - 8 + ry, 16, 18 + this.rand() * 12, "#ffb347"); R(x - 4, GROUND - 8 + ry, 8, 12 + this.rand() * 8, "#fff176"); }
+    } else if (k === 9) {
+      c.fillStyle = `rgba(120,0,0,${Math.min(0.22, T * 0.05)})`; c.fillRect(0, 0, W, H);
+      const len = T * 110;
+      for (let ci = 0; ci < 3; ci++) for (let i = 0; i < Math.floor(len / 8); i++) R(W - i * 8, GROUND + 3 + Math.sin(i * 1.7 + ci * 2) * 6 + ci * 14, 9, 2, "#150808");
+    }
+  }
+
+  private drawTravelFront(c: CanvasRenderingContext2D) {
+    const T = this.phaseT, k = this.travelKind;
+    if (k === 1) {
+      c.fillStyle = "#a8c8ff";
+      for (let i = 0; i < 70; i++) c.fillRect(Math.round((i * 37 + T * 90) % W), Math.round((i * 53 + T * 420) % H), 1, 7);
+      if ((T * 3.1) % 1 < 0.07 && Math.floor(T * 3.1) % 3 === 0) { c.fillStyle = "rgba(255,255,255,0.4)"; c.fillRect(0, 0, W, H); }
+    }
+    if (k === 5 && this.travelFlash > 0) { c.fillStyle = `rgba(255,255,255,${this.travelFlash * 0.6})`; c.fillRect(0, 0, W, H); }
+    if (k === 2 && T > 5.9 && T < 6.5) { c.fillStyle = `rgba(255,255,255,${Math.sin(((T - 5.9) / 0.6) * Math.PI) * 0.5})`; c.fillRect(0, 0, W, H); }
+  }
+
+  private drawRide(c: CanvasRenderingContext2D, e: Ent) {
+    const k = this.travelKind;
+    if (k !== 3 && k !== 6) return;
+    if (this.phaseT < e.tStart - 0.7 || e.alpha <= 0) return;
+    const f = e.bsc >= 2 ? 2 : 1, x = e.x, y = e.y;
+    const R = (px: number, py: number, w: number, h: number, col: string) => { c.fillStyle = col; c.fillRect(Math.round(x + px * f), Math.round(y + py * f), Math.max(1, Math.round(w * f)), Math.max(1, Math.round(h * f))); };
+    if (k === 3) {
+      const col = ["#e8453c", "#2f6fe4", "#2bb673"][hashStr(e.id) % 3];
+      R(-9, -5, 5, 5, "#222"); R(4, -5, 5, 5, "#222"); R(-8, -8, 16, 3, col); R(-2, -10, 7, 3, "#ffd84a"); R(5, -12, 2, 5, "#ccc"); R(-9, -4, 2, 2, "#888"); R(5, -4, 2, 2, "#888");
+    } else {
+      R(-9, -3, 18, 2, "#8a5a2b"); R(-10, -1, 20, 1, "#cfd8e0"); R(8, -5, 2, 3, "#cfd8e0"); R(-6, -4, 12, 1, "#b8803f");
+    }
+  }
+
   /* ───────────── diseño / posiciones ───────────── */
   private relayout() {
     this.dirty = false;
     const list = [...this.ents.values()];
+    if (this.phase === "travel") return;
     if (this.phase === "lobby") {
       const s = list.length <= 18 ? 2 : 1;
       list.forEach((e) => (e.scale = s));
@@ -938,6 +1419,8 @@ export class QuizEngine {
     const surfaces = this.arena;
     const d = this.dino;
     let move = 0;
+    e.dodgeCd -= dt;
+    if (e.codeT > 0) e.codeT -= dt;
 
     if (e.script) {
       if (e.dashTo !== null) {
@@ -951,7 +1434,7 @@ export class QuizEngine {
       e.flip = d.x < e.x;
     } else if (mode === "cheer") {
       if (grounded && this.rand() < dt * 0.9) { e.vh = JUMP * 0.45; e.surf = -2; }
-    } else if (e.stun <= 0) {
+    } else if (e.stun <= 0 && e.codeT <= 0 && !e.doomed) {
       e.aiT -= dt;
       if (e.aiT <= 0) this.pickGoal(e, mode === "boss");
       let gx = e.goalX;
@@ -977,7 +1460,7 @@ export class QuizEngine {
       } else {
         e.vx *= 0.6;
         if (tgt) e.flip = tgt.x < e.x;
-        if (e.target === "D") e.flip = true;
+        if (e.target === "D") e.flip = false;
       }
       // saltos naturales (bajos): caja adelante, plataforma, objetivo alto o capricho
       if (grounded) {
@@ -994,7 +1477,7 @@ export class QuizEngine {
           if (P && Math.abs(e.x - (P.x + P.w / 2)) < P.w / 2 - 6 && e.h < P.h - 3) jump = true;
         }
         if (tgt && tgt.h > e.h + 10 && Math.abs(tgt.x - e.x) < 40) jump = true;
-        if (!jump && this.rand() < dt * 0.25) { jump = true; small = true; }
+        if (!jump && this.rand() < dt * 0.55) { jump = true; small = true; }
         if (jump) {
           e.vh = small ? JUMP * 0.6 : JUMP; e.surf = -2; e.vx *= 1.05;
           if (this.rand() < 0.04) sfx.jump();
@@ -1005,6 +1488,22 @@ export class QuizEngine {
         e.guardT = 0.35;
         if (grounded) { e.vh = JUMP * 0.5; e.surf = -2; e.vx = -Math.sign(e.vx || 1) * 35; }
       }
+      // esquivar proyectiles que vienen hacia mí
+      if (e.dodgeCd <= 0) {
+        for (const pr of this.projs) {
+          if (pr.owner === e.id || pr.lethal) continue;
+          if (this.phase === "boss" && pr.owner !== "D") continue;
+          const rel = e.x - pr.x;
+          if (Math.abs(rel) < 55 && Math.sign(pr.vx) === Math.sign(rel) && Math.abs(pr.y - (e.y - e.h - 8 * e.scale)) < 22 && this.rand() < dt * 8) {
+            e.dodgeCd = 0.9; e.guardT = 0.4;
+            if (grounded) { e.vh = JUMP * 0.85; e.surf = -2; }
+            e.vx = Math.sign(rel) * 70;
+            break;
+          }
+        }
+      }
+      // embestida cuando el rival está cerca pero no al alcance
+      if (tgt && grounded && Math.abs(tgt.x - e.x) < 80 && Math.abs(tgt.x - e.x) > 20 && e.atkCd <= 0 && this.rand() < dt * 0.7) e.vx = Math.sign(tgt.x - e.x) * 115;
       // golpe cuerpo a cuerpo con embestida
       if (tgt && e.atkCd <= 0 && Math.abs(tgt.x - e.x) < 17 && Math.abs(tgt.h - e.h) < 20 && tgt.stun <= 0) {
         e.atkCd = 0.7 + this.rand() * 0.6;
@@ -1023,11 +1522,11 @@ export class QuizEngine {
           if (this.lastHitSfx <= 0) { sfx.hitSmall(); this.lastHitSfx = 0.07; }
         }
       }
-      // lanzar cosas a un rival lejano
+      // lanzar armas a un rival (flechas, bombas, láser, hielo, rayos...)
       if (tgt && e.atkCd <= 0) {
         const dist = Math.abs(tgt.x - e.x);
-        if (dist > 35 && dist < 120 && Math.abs(tgt.h - e.h) < 30 && this.rand() < dt * 1.1) {
-          e.atkCd = 1.1 + this.rand() * 0.8;
+        if (dist > 26 && dist < 240 && Math.abs(tgt.h - e.h) < 40 && this.rand() < dt * 1.6) {
+          e.atkCd = 0.9 + this.rand() * 0.7;
           this.throwAt(e, tgt.x, tgt.y - tgt.h - 8 * tgt.scale, tgt.id);
         }
       }
@@ -1040,7 +1539,7 @@ export class QuizEngine {
           this.throwAt(e, d.x - 60, GROUND - 40 - this.rand() * 70, "D");
         } else if (e.atkCd <= 0 && Math.abs(dist) < 14 && e.h < 120) {
           e.atkCd = 0.7 + this.rand() * 0.5;
-          e.atkT = 0.24; e.flip = true;
+          e.atkT = 0.24; e.flip = false;
           this.dinoHit(0.006);
           this.burst(front, e.y - 10 - e.h, 4, "#fff176", 45);
           this.impact(1.2);
@@ -1052,8 +1551,8 @@ export class QuizEngine {
 
     // física horizontal
     if (!e.script) e.x += e.vx * dt;
-    if (e.stun > 0 || mode === "cheer") e.vx *= 0.96;
-    else if (move === 0 && !e.script) e.vx *= 0.85;
+    if (e.stun > 0 || mode === "cheer" || e.codeT > 0) e.vx *= 0.94;
+    else if (move === 0 && !e.script) e.vx *= e.doomed ? 0.9 : 0.85;
     if (this.windT > 0 && mode === "boss" && !e.script && e.x < d.x) e.x -= 45 * dt;
     e.x = clamp(e.x, 6, W - 6);
 
@@ -1109,8 +1608,10 @@ export class QuizEngine {
     e.ex = 0;
 
     // pose
-    if (e.atkT > 0) e.pose = "punch";
+    if (e.codeT > 0) e.pose = "guard";
+    else if (e.atkT > 0) e.pose = "punch";
     else if (e.stun > 0) e.pose = "dizzy";
+    else if (e.doomed) e.pose = "guard";
     else if (mode === "cheer") e.pose = "cheer";
     else if (e.guardT > 0) e.pose = "guard";
     else if (e.h > 2) e.pose = e.vh > 0 ? "guard" : "idle";
@@ -1149,6 +1650,7 @@ export class QuizEngine {
       // sale de la arena cuando termina el tiempo de festejo en pie
       if (e.arena && e.koState === 0 && !this.arenaActive(e)) this.leaveArena(e);
 
+      if (this.phase === "travel" && this.travelStep(e, dt)) continue;
       if (this.arenaActive(e)) {
         this.fightStep(e, dt);
         continue;
@@ -1161,7 +1663,7 @@ export class QuizEngine {
         e.ey += e.evy * dt;
         if (e.ey >= 0 && e.evy > 0) {
           e.ey = 0;
-          if (e.koState === 3 && (e.evx !== 0 || Math.abs(e.evy) > 60) && e.koAt < 900) {
+          if (e.koState === 3 && (e.evx !== 0 || Math.abs(e.evy) > 60)) {
             e.koState = 4;
             this.burst(e.x + e.ex, e.y, 5, "#ffffff", 25);
           }
@@ -1207,6 +1709,9 @@ export class QuizEngine {
       }
     }
 
+    if (this.phase === "travel") this.updateTravelProps(dt);
+    this.fadeIn = Math.max(0, this.fadeIn - dt * 1.8);
+    this.killCamT = Math.max(0, this.killCamT - dt);
     this.separate();
     this.updateProjs(dt);
     this.updateWaves(dt);
@@ -1265,6 +1770,18 @@ export class QuizEngine {
     let tz = 1, fx = W / 2, fy = H / 2;
     if (this.phase === "results" && this.zoomPts && this.phaseT > 0.15 && this.phaseT < 3.0) {
       tz = this.zoomPts.z; fx = this.zoomPts.x; fy = this.zoomPts.y;
+    } else if (this.phase === "fight") {
+      if (this.killCamT > 0) { tz = 1.9; fx = this.killCam.x; fy = this.killCam.y - 12; }
+      else {
+        let sx = 0, sy = 0, sw = 0;
+        for (const h of this.hot) {
+          const age = this.time - h.t;
+          if (age < 1.4) { const ww = h.w * (1 - age / 1.4); sx += h.x * ww; sy += h.y * ww; sw += ww; }
+        }
+        const wide = Math.sin(this.time * 0.55) > 0.72;
+        if (sw > 0.25 && !wide) { tz = 1.45 + 0.2 * Math.sin(this.time * 0.9); fx = sx / sw; fy = sy / sw - 10; }
+        else { tz = wide ? 1.0 : 1.12; fy = GROUND - 60; }
+      }
     } else if (this.phase === "boss") {
       const w = this.winnerId ? this.ents.get(this.winnerId) : undefined;
       if (this.bossStage === "duel" && w) { tz = 1.7; fx = (w.x + this.dino.x) / 2; fy = GROUND - 55; }
@@ -1300,6 +1817,7 @@ export class QuizEngine {
     if (this.phase === "final") this.drawFinalBg(c);
     else drawBackground(c, lv, this.phase === "boss" ? 11 : this.q, this.time);
 
+    if (this.phase === "travel") this.drawTravelBack(c);
     if (this.phase === "lobby") {
       const roar = this.lobbyRoarT > 0;
       this.drawDinoAt(c, { x: 700, y: GROUND + 16, P: 6, legs: DINO_LEGS_A, body: "#535353", angry: roar, lift: Math.sin(this.time * 2.2) > 0.6 ? 1 : 0, blinkEye: Math.floor(this.time * 3) % 14 === 0, shakeX: roar ? Math.sin(this.time * 60) * 1.2 : 0 });
@@ -1318,7 +1836,9 @@ export class QuizEngine {
       if (rot) y -= 4 * e.scale;
       if (e.koState === 3 && e.evx !== 0) rot = Math.floor(this.time * 8 + e.phase) % 4;
       if (e.koState === 2) e.tint = Math.floor(this.time * 20) % 2 ? "#ffffff" : "#222222";
+      if (this.phase === "travel") this.drawRide(c, e);
       drawHuman(c, e.look, x, y, { pose: e.pose, frame: e.frame, flip: e.flip, scale: e.scale, tint: e.tint, alpha: e.alpha, rot });
+      if (e.codeT > 0) this.drawLaptop(c, e, x, y);
       if (e.koState === 1) {
         c.fillStyle = "rgba(190,240,255,0.55)";
         c.fillRect(Math.round(x - 7 * e.scale), Math.round(y - 18 * e.scale), 14 * e.scale, 19 * e.scale);
@@ -1338,6 +1858,7 @@ export class QuizEngine {
     }
 
     if (this.phase === "final") this.drawPrize(c);
+    if (this.phase === "travel") this.drawTravelFront(c);
     for (const p of this.projs) this.drawProj(c, p);
     for (const f of this.fx) this.drawFx(c, f);
     for (const p of this.particles) {
@@ -1429,18 +1950,42 @@ export class QuizEngine {
     this.drawDinoAt(c, { x: d.x, y: d.y, P: DINO_P, legs, body, angry: d.roarT > 0, lift: d.lift + bob, rot, shakeX, alpha });
   }
 
+  private drawLaptop(c: CanvasRenderingContext2D, e: Ent, x: number, y: number) {
+    const f = e.scale, ox = 7 * f;
+    const R = (px: number, py: number, w: number, h: number, col: string) => { c.fillStyle = col; c.fillRect(Math.round(x + ox + px * f), Math.round(y + py * f), Math.max(1, Math.round(w * f)), Math.max(1, Math.round(h * f))); };
+    R(-4, -6, 9, 2, "#b8b8c8");
+    R(-3, -13, 7, 7, "#1a1a2a");
+    const k = Math.floor(this.time * 14);
+    R(-2, -12, 3 + (k % 3), 1, "#2bb673"); R(-2, -10, 2 + ((k + 1) % 3), 1, "#2bb673"); R(-2, -8, 4, 1, (k % 2) ? "#9ad7ff" : "#2bb673");
+  }
+
   private drawProj(c: CanvasRenderingContext2D, p: Proj) {
     const x = Math.round(p.x), y = Math.round(p.y);
-    if (p.kind === "rock") { c.fillStyle = "#6a6a6a"; c.fillRect(x - 2, y - 2, 5, 5); c.fillStyle = "#9a9a9a"; c.fillRect(x - 2, y - 2, 2, 2); }
-    else if (p.kind === "snow") { c.fillStyle = "#ffffff"; c.fillRect(x - 2, y - 2, 5, 5); c.fillStyle = "#bfeaff"; c.fillRect(x, y, 2, 2); }
-    else if (p.kind === "bomb") { c.fillStyle = "#111"; c.fillRect(x - 3, y - 3, 6, 6); c.fillStyle = Math.floor(p.rot) % 2 ? "#ff5a2a" : "#ffd84a"; c.fillRect(x, y - 5, 2, 2); }
-    else if (p.kind === "star") {
-      c.fillStyle = "#e8e8f0";
-      const k = Math.floor(p.rot) % 2;
-      if (k) { c.fillRect(x - 3, y - 1, 7, 2); c.fillRect(x - 1, y - 3, 2, 7); } else { c.fillRect(x - 2, y - 2, 2, 2); c.fillRect(x + 1, y - 2, 2, 2); c.fillRect(x - 2, y + 1, 2, 2); c.fillRect(x + 1, y + 1, 2, 2); }
+    switch (p.kind) {
+      case "rock": c.fillStyle = "#6a6a6a"; c.fillRect(x - 2, y - 2, 5, 5); c.fillStyle = "#9a9a9a"; c.fillRect(x - 2, y - 2, 2, 2); break;
+      case "ice": c.fillStyle = "#9fe8ff"; c.fillRect(x - 1, y - 3, 3, 7); c.fillRect(x - 3, y - 1, 7, 3); c.fillStyle = "#ffffff"; c.fillRect(x - 1, y - 1, 2, 2); break;
+      case "bomb": c.fillStyle = "#111"; c.fillRect(x - 3, y - 3, 6, 6); c.fillStyle = Math.floor(p.rot) % 2 ? "#ff5a2a" : "#ffd84a"; c.fillRect(x, y - 5, 2, 2); break;
+      case "grenade": c.fillStyle = "#3a6a2a"; c.fillRect(x - 3, y - 3, 6, 7); c.fillStyle = "#5a9a3a"; c.fillRect(x - 3, y - 3, 2, 3); c.fillStyle = "#999"; c.fillRect(x - 1, y - 5, 3, 2); break;
+      case "star": {
+        c.fillStyle = "#e8e8f0";
+        if (Math.floor(p.rot) % 2) { c.fillRect(x - 3, y - 1, 7, 2); c.fillRect(x - 1, y - 3, 2, 7); }
+        else { c.fillRect(x - 2, y - 2, 2, 2); c.fillRect(x + 1, y - 2, 2, 2); c.fillRect(x - 2, y + 1, 2, 2); c.fillRect(x + 1, y + 1, 2, 2); }
+        break;
+      }
+      case "fire": c.fillStyle = "#ff7a1a"; c.fillRect(x - 2, y - 2, 5, 5); c.fillStyle = "#ffd84a"; c.fillRect(x - 1, y - 1, 3, 3); break;
+      case "arrow":
+        c.save(); c.translate(x, y); c.rotate(Math.atan2(p.vy, p.vx));
+        c.fillStyle = "#d8c08a"; c.fillRect(-5, -1, 10, 1); c.fillStyle = "#cfcfcf"; c.fillRect(4, -2, 3, 3); c.fillStyle = "#e8453c"; c.fillRect(-6, -2, 2, 3);
+        c.restore();
+        break;
+      case "bullet": c.fillStyle = "#ffe55a"; c.fillRect(x - 2, y - 1, 5, 2); c.fillStyle = "rgba(255,229,90,0.4)"; c.fillRect(x - 8, y - 1, 6, 1); break;
+      case "code":
+        c.font = '6px "Press Start 2P", monospace'; c.textAlign = "center"; c.textBaseline = "middle";
+        c.fillStyle = "rgba(0,0,0,0.55)"; c.fillText(p.txt ?? "{}", x + 0.6, y + 0.6);
+        c.fillStyle = "#39ff88"; c.fillText(p.txt ?? "{}", x, y);
+        break;
+      default: c.fillStyle = "#ff5a2a"; c.fillRect(x - 4, y - 4, 9, 9); c.fillStyle = "#ffb347"; c.fillRect(x - 3, y - 3, 6, 6); c.fillStyle = "#fff176"; c.fillRect(x - 1, y - 1, 3, 3);
     }
-    else if (p.kind === "fire") { c.fillStyle = "#ff7a1a"; c.fillRect(x - 2, y - 2, 5, 5); c.fillStyle = "#ffd84a"; c.fillRect(x - 1, y - 1, 3, 3); }
-    else { c.fillStyle = "#ff5a2a"; c.fillRect(x - 4, y - 4, 9, 9); c.fillStyle = "#ffb347"; c.fillRect(x - 3, y - 3, 6, 6); c.fillStyle = "#fff176"; c.fillRect(x - 1, y - 1, 3, 3); }
   }
 
   private drawWave(c: CanvasRenderingContext2D, w: Wave) {
@@ -1536,6 +2081,11 @@ export class QuizEngine {
       }
       c.globalAlpha = 0.25 * (1 - k);
       c.fillStyle = "#ffffff"; c.fillRect(0, 0, W, H);
+      c.globalAlpha = 1;
+    } else if (f.kind === "laser") {
+      c.globalAlpha = 1 - k * 0.5;
+      c.strokeStyle = "#ff3b3b"; c.lineWidth = 3; c.beginPath(); c.moveTo(f.x0!, f.y0!); c.lineTo(f.x1!, f.y1!); c.stroke();
+      c.strokeStyle = "#ffffff"; c.lineWidth = 1; c.beginPath(); c.moveTo(f.x0!, f.y0!); c.lineTo(f.x1!, f.y1!); c.stroke();
       c.globalAlpha = 1;
     } else if (f.kind === "ring") {
       const r = (f.r ?? 20) * k;
@@ -1637,7 +2187,7 @@ export class QuizEngine {
 
     if (this.phase === "question" || this.phase === "fight" || this.phase === "results") {
       const showQ = this.phase === "question" || this.phase === "fight";
-      const hud = !zoomed || this.phase === "question";
+      const hud = !zoomed || this.phase === "question" || this.phase === "fight";
       if (hud) {
         T(`PREGUNTA ${this.q + 1}/${QUESTIONS.length}  ·  NIVEL ${this.q + 1}: ${lv.name}`, 28, 56, 14, lv.ink, "left", false);
         if (showQ) {
@@ -1728,7 +2278,7 @@ export class QuizEngine {
         c.fillRect(500, 80, Math.round(600 * this.dino.hp), 12);
       }
       const alive = list.filter((e) => e.koState === 0).length;
-      if (this.bossStage === "brawl" || this.bossStage === "duel") T(`EN PIE: ${alive}`, 1572, 62, 16, "#ffb0a0", "right", false);
+      if (this.bossStage === "brawl" || this.bossStage === "three" || this.bossStage === "duel") T(`EN PIE: ${alive}`, 1572, 62, 16, "#ffb0a0", "right", false);
       if (this.bannerT > 0) this.drawBanner(c, T);
       const w = this.winnerId ? this.ents.get(this.winnerId) : undefined;
       if (w && (this.bossStage === "duel" || this.bossStage === "dying" || this.bossStage === "end"))
@@ -1766,6 +2316,17 @@ export class QuizEngine {
       T(p.text, WX(p.x), WY(p.y), p.size * zs, p.color, "center");
     }
     c.globalAlpha = 1;
+
+    if (this.phase === "travel") {
+      if (this.bannerT > 0) this.drawBanner(c, T);
+      if (this.phaseT > this.travelDur - 2.4 && this.phaseT < this.travelDur - 0.4) {
+        c.fillStyle = "rgba(0,0,0,0.5)"; c.fillRect(0, 780, 1600, 70);
+        T(this.travelNext, 800, 800, 24, "#ffffff", "center");
+      }
+    }
+    let fa = this.fadeIn;
+    if (this.phase === "travel") fa = Math.max(fa, clamp((this.phaseT - (this.travelDur - 0.6)) / 0.6, 0, 1));
+    if (fa > 0) { c.fillStyle = `rgba(0,0,0,${fa})`; c.fillRect(0, 0, 1600, 900); }
   }
 
   private drawBanner(c: CanvasRenderingContext2D, T: (s: string, x: number, y: number, size: number, color: string, align?: CanvasTextAlign, shadow?: boolean) => void) {

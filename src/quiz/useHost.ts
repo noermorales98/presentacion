@@ -42,6 +42,8 @@ export function useQuizHost(step: number, engine: QuizEngine) {
   const results = useRef<Results>({});
   const stateRef = useRef<{ startedAt?: number }>({});
   const qRef = useRef(0);
+  const lastAct = useRef<Record<string, number>>({});
+  const actFirst = useRef(true);
 
   // conexión + suscripciones
   useEffect(() => {
@@ -67,6 +69,19 @@ export function useQuizHost(step: number, engine: QuizEngine) {
           }),
           t.watch(`${base}/results`, (v) => {
             results.current = (v as Results) ?? {};
+          }),
+          t.watch(`${base}/actions`, (v) => {
+            const m = (v as Record<string, { a: string; n: number }> | null) ?? {};
+            const seen = lastAct.current;
+            for (const id of Object.keys(seen)) if (!m[id]) delete seen[id];
+            for (const [id, rec] of Object.entries(m)) {
+              if (!rec) continue;
+              const prev = seen[id];
+              seen[id] = rec.n;
+              if (actFirst.current || prev === rec.n) continue;
+              engine.playerAction(id, rec.a);
+            }
+            actFirst.current = false;
           }),
           t.watch(`${base}/state`, (v) => {
             const s = (v as { startedAt?: number } | null) ?? {};
@@ -111,8 +126,13 @@ export function useQuizHost(step: number, engine: QuizEngine) {
       const t = tRef.current;
       if (t) void t.update(`rooms/${room}/state`, { phase: "results" });
     };
+    engine.onEliminated = (id) => {
+      const t = tRef.current;
+      if (t) void t.set(`rooms/${room}/out/${id}`, true);
+    };
     return () => {
       engine.onFightDone = undefined;
+      engine.onEliminated = undefined;
     };
   }, [engine, room]);
 
@@ -123,21 +143,34 @@ export function useQuizHost(step: number, engine: QuizEngine) {
     const base = `rooms/${room}`;
     const { phase, q } = phaseOfStep(step);
     qRef.current = q;
+    let cancelled = false;
     const publish = (extra: Record<string, unknown> = {}) =>
       t.set(`${base}/state`, { phase, q, step, v: Date.now(), ...extra });
 
     if (phase === "lobby") {
       void t.remove(`${base}/answers`);
       void t.remove(`${base}/results`);
+      void t.remove(`${base}/actions`);
+      void t.remove(`${base}/out`);
       results.current = {};
       answers.current = {};
       engine.syncAnswers(null);
       engine.enter("lobby", 0);
       void publish({ startedAt: null });
     } else if (phase === "question") {
-      engine.enter("question", q, { startedAt: Date.now() });
-      engine.syncAnswers(answers.current[String(q)] ?? null);
-      void publish({ startedAt: SERVER_TS });
+      const begin = () => {
+        engine.enter("question", q, { startedAt: Date.now() });
+        engine.syncAnswers(answers.current[String(q)] ?? null);
+        void publish({ startedAt: SERVER_TS });
+      };
+      if (q > 0) {
+        engine.onTravelDone = () => {
+          engine.onTravelDone = undefined;
+          if (!cancelled) begin();
+        };
+        engine.enter("travel", q - 1);
+        void t.set(`${base}/state`, { phase: "travel", q, step, v: Date.now() });
+      } else begin();
     } else if (phase === "fight") {
       const startedAt = stateRef.current.startedAt ?? Date.now();
       const res = scoreQuestion(QUESTIONS[q], answers.current[String(q)] ?? {}, startedAt);
@@ -150,14 +183,26 @@ export function useQuizHost(step: number, engine: QuizEngine) {
       engine.enter("fight", q, { results: res, ranking: rk, startedAt });
       void publish({ startedAt });
     } else if (phase === "boss") {
-      const rk = ranking(QUESTIONS.length - 1);
-      engine.enter("boss", q, { ranking: rk });
-      void publish();
+      engine.onTravelDone = () => {
+        engine.onTravelDone = undefined;
+        if (cancelled) return;
+        void t.remove(`${base}/actions`);
+        void t.remove(`${base}/out`);
+        const rk = ranking(QUESTIONS.length - 1);
+        engine.enter("boss", q, { ranking: rk });
+        void publish();
+      };
+      engine.enter("travel", QUESTIONS.length - 1);
+      void t.set(`${base}/state`, { phase: "travel", q, step, v: Date.now() });
     } else {
       const rk = ranking(QUESTIONS.length - 1);
       engine.enter("final", q, { ranking: rk });
       void publish();
     }
+    return () => {
+      cancelled = true;
+      engine.onTravelDone = undefined;
+    };
   }, [step, ready, room, engine, ranking]);
 
   const resetRoom = useCallback(() => {

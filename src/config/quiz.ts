@@ -117,7 +117,7 @@ export const POINTS_FASTEST_BONUS = 1;
 /** pasos de la diapositiva: lobby + (pregunta, pelea) × N + jefe (dino) + final */
 export const QUIZ_STEPS = 1 + QUESTIONS.length * 2 + 2;
 
-export type QuizPhase = "lobby" | "question" | "fight" | "results" | "boss" | "final";
+export type QuizPhase = "lobby" | "question" | "fight" | "results" | "travel" | "boss" | "final";
 
 /** traduce el paso de la diapositiva a fase del juego */
 export function phaseOfStep(step: number): { phase: QuizPhase; q: number } {

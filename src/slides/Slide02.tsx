@@ -26,15 +26,29 @@ export default function Slide02({ step }: { step: number }) {
   const deck = useDeck();
   const [canAdv, setCanAdv] = useState(true);
   const [allIn, setAllIn] = useState(false);
+  const [ePhase, setEPhase] = useState(engine.phase);
 
   // el botón principal se habilita según el estado de la animación
   useEffect(() => {
     const id = window.setInterval(() => {
       setCanAdv(engine.canAdvance);
       setAllIn(engine.allAnswered);
+      setEPhase(engine.phase);
     }, 150);
     return () => window.clearInterval(id);
   }, [engine]);
+
+  // herramienta de pruebas (solo en desarrollo)
+  useEffect(() => {
+    if (import.meta.env.DEV) (window as unknown as { __quiz?: QuizEngine }).__quiz = engine;
+  }, [engine]);
+
+  // al terminar la batalla con el dino se muestra al ganador solo
+  useEffect(() => {
+    if (phase !== "boss" || ePhase !== "boss" || !canAdv) return;
+    const id = window.setTimeout(() => deck.goNext(), 1200);
+    return () => window.clearTimeout(id);
+  }, [phase, ePhase, canAdv, deck]);
 
   // en el quiz el teclado queda casi bloqueado: solo avanzan los botones
   useEffect(() => {
@@ -55,13 +69,14 @@ export default function Slide02({ step }: { step: number }) {
     deck.goNext();
   };
   const mainLabel =
-    phase === "lobby" ? "EMPEZAR"
+    ePhase === "travel" ? "VIAJANDO AL SIGUIENTE NIVEL..."
+    : phase === "lobby" ? "EMPEZAR"
     : phase === "question" ? "CERRAR TIEMPO Y PELEAR"
     : phase === "fight" ? (canAdv ? (q === last ? "¡LLEGA EL DINO!" : "SIGUIENTE NIVEL") : "PELEANDO...")
-    : phase === "boss" ? (canAdv ? "VER AL GANADOR" : "¡DINO JEFE!")
+    : phase === "boss" ? (canAdv ? "MOSTRANDO AL GANADOR..." : "¡DINO JEFE!")
     : "REINICIAR";
   const MainIcon = phase === "lobby" ? Play : phase === "final" ? RotateCcw : Swords;
-  const enabled = phase === "lobby" || phase === "question" || canAdv;
+  const enabled = phase === "lobby" || (ePhase !== "travel" && (phase === "question" || canAdv));
 
   // bucle de dibujo
   useEffect(() => {
