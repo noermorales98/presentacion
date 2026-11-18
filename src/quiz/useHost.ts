@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { QUESTIONS, phaseOfStep, scoreQuestion, type AnswerRec, type ResultRec } from "@/config/quiz";
+import { MAX_PLAYERS, QUESTIONS, phaseOfStep, scoreQuestion, type AnswerRec, type ResultRec } from "@/config/quiz";
 import { getTransport, SERVER_TS, type Transport } from "./transport";
 import type { PlayerRec, QuizEngine, Ranked } from "./engine";
 
@@ -59,9 +59,23 @@ export function useQuizHost(step: number, engine: QuizEngine) {
         const base = `rooms/${room}`;
         off.push(
           t.watch(`${base}/players`, (v) => {
-            players.current = (v as Record<string, PlayerRec>) ?? {};
+            const map = { ...((v as Record<string, PlayerRec>) ?? {}) };
+            const ids = Object.keys(map);
+            if (ids.length > MAX_PLAYERS) {
+              // sala llena: los que llegaron después del jugador 100 se rechazan
+              ids.sort((a, b) => (map[a].joinedAt ?? Infinity) - (map[b].joinedAt ?? Infinity) || a.localeCompare(b));
+              for (const id of ids.slice(MAX_PLAYERS)) {
+                delete map[id];
+                void t.remove(`${base}/players/${id}`);
+                void t.set(`${base}/rejected/${id}`, true);
+              }
+            }
+            players.current = map;
+            // aviso de sala llena para que los celulares nuevos ya no puedan entrar
+            if (Object.keys(map).length >= MAX_PLAYERS) void t.set(`${base}/full`, true);
+            else void t.remove(`${base}/full`);
             engine.syncPlayers(players.current);
-            setCount(Object.keys(players.current).length);
+            setCount(Object.keys(map).length);
           }),
           t.watch(`${base}/answers`, (v) => {
             answers.current = (v as Record<string, Record<string, AnswerRec>>) ?? {};
@@ -152,6 +166,8 @@ export function useQuizHost(step: number, engine: QuizEngine) {
       void t.remove(`${base}/results`);
       void t.remove(`${base}/actions`);
       void t.remove(`${base}/out`);
+      void t.remove(`${base}/rejected`);
+      void t.remove(`${base}/full`);
       results.current = {};
       answers.current = {};
       engine.syncAnswers(null);

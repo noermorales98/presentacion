@@ -110,6 +110,9 @@ export default Saludo;`,
   },
 ];
 
+/** máximo de jugadores por sala */
+export const MAX_PLAYERS = 95;
+
 /** puntos por respuesta correcta y bono por ser el correcto más rápido */
 export const POINTS_CORRECT = 3;
 export const POINTS_FASTEST_BONUS = 1;

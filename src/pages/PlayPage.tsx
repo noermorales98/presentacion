@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { Bomb, ChevronsUp, Crosshair, Laptop } from "lucide-react";
 import "@fontsource/press-start-2p/index.css";
-import { QUESTIONS, type QuizPhase, type ResultRec } from "@/config/quiz";
+import { MAX_PLAYERS, QUESTIONS, type QuizPhase, type ResultRec } from "@/config/quiz";
 import { getTransport, SERVER_TS, type Transport } from "@/quiz/transport";
 import { drawHuman, hashStr, makeLook } from "@/quiz/sprites";
 import { sfx, unlockAudio } from "@/quiz/audio";
@@ -75,6 +75,8 @@ export default function PlayPage() {
   const [connected, setConnected] = useState(true);
   const lastPhase = useRef<string>("");
   const [out, setOut] = useState(false);
+  const [full, setFull] = useState(false);
+  const [roomFull, setRoomFull] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const cdUntil = useRef<Record<string, number>>({});
 
@@ -94,6 +96,8 @@ export default function PlayPage() {
       }),
       t.watch(`${base}/totals`, (v) => setTotals((v as typeof totals) ?? {})),
       t.watch(`${base}/out/${pid}`, (v) => setOut(!!v)),
+      t.watch(`${base}/rejected/${pid}`, (v) => setFull(!!v)),
+      t.watch(`${base}/full`, (v) => setRoomFull(!!v)),
     ];
     return () => offs.forEach((f) => f());
   }, [t, code, pid]);
@@ -165,7 +169,7 @@ export default function PlayPage() {
 
   const join = () => {
     const n = name.trim().slice(0, 12);
-    if (!n || !t) return;
+    if (!n || !t || roomFull) return;
     unlockAudio();
     sfx.join();
     try {
@@ -198,7 +202,13 @@ export default function PlayPage() {
           {joined && <span className="max-w-[55%] truncate text-white">{name.toUpperCase()}</span>}
         </header>
 
-        {!joined ? (
+        {full || (roomFull && !joined) ? (
+          <Center>
+            <Avatar seed={seed} pose="ko" />
+            <h2 className="text-[16px] leading-7 text-[#e8453c]">¡SALA LLENA!</h2>
+            <p className="text-[11px] leading-5 text-[#9a9ac0]">YA HAY {MAX_PLAYERS} JUGADORES. MIRA LA PANTALLA.</p>
+          </Center>
+        ) : !joined ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 py-8 text-center">
             <Avatar seed={seed} pose="idle" size={8} />
             <h1 className="text-[18px] leading-8">QUIZ DE PROGRAMACIÓN</h1>

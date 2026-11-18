@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Copy, Play, RefreshCw, RotateCcw, Swords, Volume2, VolumeX } from "lucide-react";
 import "@fontsource/press-start-2p/index.css";
-import { phaseOfStep, QUESTIONS } from "@/config/quiz";
+import { MAX_PLAYERS, phaseOfStep, QUESTIONS } from "@/config/quiz";
 import { useDeck } from "@/deck/DeckContext";
 import { quizGate } from "@/quiz/gate";
 import { QuizEngine } from "@/quiz/engine";
@@ -176,7 +176,7 @@ export default function Slide02({ step }: { step: number }) {
               QUIZ DE PROGRAMACIÓN · {QUESTIONS.length} PREGUNTAS
             </p>
             <p className="mt-5 text-[22px] text-[#e8453c]">
-              {host.count} {host.count === 1 ? "JUGADOR" : "JUGADORES"}
+              {host.count >= MAX_PLAYERS ? `SALA LLENA · ${MAX_PLAYERS}` : `${host.count} ${host.count === 1 ? "JUGADOR" : "JUGADORES"}`}
             </p>
             {host.ready && (
               <p className="mt-4 animate-pulse text-[13px] leading-6">PULSA «EMPEZAR» ARRIBA A LA DERECHA</p>
