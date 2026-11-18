@@ -33,6 +33,8 @@ export const LEVELS: Level[] = [
   { name: "LA CIMA", sky: "#ffd966", sky2: "#fff0b0", ground: "#d9a441", groundDark: "#8a4b00", ink: "#8a4b00", accent: "#ffffff", panel: "#fff8dc", panelText: "#8a4b00", deco: "peaks", celestial: "sun", celestialColor: "#ffffff" },
 ];
 
+export const BOSS_LEVEL: Level = { name: "GUARIDA DEL DINO", sky: "#2a0a14", sky2: "#4a1424", ground: "#3a1a22", groundDark: "#ff6a4a", ink: "#ffb0a0", accent: "#ff3b3b", panel: "#1a0610", panelText: "#ffb0a0", deco: "lava", celestial: "moon", celestialColor: "#ff6a4a" };
+
 export function levelFor(q: number): Level {
   return LEVELS[((q % LEVELS.length) + LEVELS.length) % LEVELS.length];
 }

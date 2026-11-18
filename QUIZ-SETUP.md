@@ -50,13 +50,17 @@ El QR y el link se generan solos con la URL pública donde esté desplegada la p
 
 ## Cómo se juega
 
-| Clic / → | Qué pasa |
+Un clic en el escenario **no** avanza nada: solo el botón verde/azul de arriba a la derecha (y las flechas solo
+sirven para salir del quiz en el lobby / al final).
+
+| Botón | Qué pasa |
 |---|---|
-| 0 (lobby) | Los jugadores escanean el QR y aparecen sus personajes |
-| 1.er clic | Abre la pregunta 1. Se ve cuántos han respondido |
-| 2.º clic | Cierra el tiempo → pelea → respuesta correcta + Top 5 |
-| siguiente | Pregunta 2… (cada nivel cambia de escenario y de tipo de pelea) |
-| último | El ganador escala la montaña |
+| EMPEZAR | Abre la pregunta 1; se ve cuántos han respondido |
+| CERRAR TIEMPO Y PELEAR | Pelea estilo Smash (plataformas, cajas, saltos) → zoom a los sobrevivientes → respuesta + Top 5 |
+| SIGUIENTE NIVEL | Siguiente pregunta (otro escenario y otro tipo de KO) |
+| ¡LLEGA EL DINO! | Dino gigante contra todos; solo el ganador (1.º lugar) lo derrota |
+| VER AL GANADOR | Zoom al ganador escalando la montaña → premio: una sabrita |
+| REINICIAR | Vuelve al lobby (pide confirmación); los jugadores se quedan |
 
 - Puntos: **3** por respuesta correcta + **1** extra al correcto más rápido.
 - Tecla **M** silencia el sonido y la música.

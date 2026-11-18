@@ -149,6 +149,10 @@ export function useQuizHost(step: number, engine: QuizEngine) {
       void t.set(`${base}/totals`, totals);
       engine.enter("fight", q, { results: res, ranking: rk, startedAt });
       void publish({ startedAt });
+    } else if (phase === "boss") {
+      const rk = ranking(QUESTIONS.length - 1);
+      engine.enter("boss", q, { ranking: rk });
+      void publish();
     } else {
       const rk = ranking(QUESTIONS.length - 1);
       engine.enter("final", q, { ranking: rk });

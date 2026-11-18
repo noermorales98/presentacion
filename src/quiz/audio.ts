@@ -160,6 +160,21 @@ export const sfx = {
   step() {
     tone(N(67), 0.05, { type: "triangle", vol: 0.1 });
   },
+  roar() {
+    noise(0.9, { vol: 0.35, lowpass: 500 });
+    tone(N(36), 0.9, { type: "sawtooth", vol: 0.22, slideTo: N(28) });
+    tone(N(43), 0.9, { type: "square", vol: 0.08, slideTo: N(30), at: 0.05 });
+  },
+  stomp() {
+    noise(0.22, { vol: 0.4, lowpass: 300 });
+    tone(N(33), 0.2, { type: "square", vol: 0.2, slideTo: N(24) });
+  },
+  unlock() {
+    [72, 76, 79, 84, 88, 91, 96].forEach((n, i) => tone(N(n), 0.12, { at: i * 0.08, vol: 0.14 }));
+  },
+  jump() {
+    tone(N(72), 0.08, { type: "square", vol: 0.05, slideTo: N(84) });
+  },
   fanfare() {
     const seq = [67, 67, 67, 72, 76, 79, 76, 79, 84];
     const dur = [0.1, 0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.1, 0.6];

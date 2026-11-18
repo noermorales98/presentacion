@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, RefreshCw, Volume2, VolumeX } from "lucide-react";
+import { Copy, Play, RefreshCw, RotateCcw, Swords, Volume2, VolumeX } from "lucide-react";
 import "@fontsource/press-start-2p/index.css";
-import { phaseOfStep } from "@/config/quiz";
+import { phaseOfStep, QUESTIONS } from "@/config/quiz";
+import { useDeck } from "@/deck/DeckContext";
+import { quizGate } from "@/quiz/gate";
 import { QuizEngine } from "@/quiz/engine";
 import { useQuizHost, joinUrl } from "@/quiz/useHost";
 import { isMuted, setMuted, setMusicLevel, startMusic, stopMusic, unlockAudio } from "@/quiz/audio";
@@ -21,6 +23,45 @@ export default function Slide02({ step }: { step: number }) {
   const [muted, setMutedState] = useState(isMuted());
   const [copied, setCopied] = useState(false);
   const url = joinUrl(host.room);
+  const deck = useDeck();
+  const [canAdv, setCanAdv] = useState(true);
+  const [allIn, setAllIn] = useState(false);
+
+  // el botón principal se habilita según el estado de la animación
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setCanAdv(engine.canAdvance);
+      setAllIn(engine.allAnswered);
+    }, 150);
+    return () => window.clearInterval(id);
+  }, [engine]);
+
+  // en el quiz el teclado queda casi bloqueado: solo avanzan los botones
+  useEffect(() => {
+    quizGate.allowKey = (dir) => (phase === "lobby" ? dir < 0 : phase === "final" ? dir > 0 : false);
+    return () => {
+      quizGate.allowKey = () => true;
+    };
+  }, [phase]);
+
+  const last = QUESTIONS.length - 1;
+  const advance = () => {
+    if (!engine.canAdvance && phase !== "lobby" && phase !== "question") return;
+    unlockAudio();
+    if (phase === "final") {
+      if (window.confirm("¿Reiniciar el quiz? Se borran los puntos y vuelve el lobby (los jugadores se quedan).")) deck.goToStep(deck.slide, 0);
+      return;
+    }
+    deck.goNext();
+  };
+  const mainLabel =
+    phase === "lobby" ? "EMPEZAR"
+    : phase === "question" ? "CERRAR TIEMPO Y PELEAR"
+    : phase === "fight" ? (canAdv ? (q === last ? "¡LLEGA EL DINO!" : "SIGUIENTE NIVEL") : "PELEANDO...")
+    : phase === "boss" ? (canAdv ? "VER AL GANADOR" : "¡DINO JEFE!")
+    : "REINICIAR";
+  const MainIcon = phase === "lobby" ? Play : phase === "final" ? RotateCcw : Swords;
+  const enabled = phase === "lobby" || phase === "question" || canAdv;
 
   // bucle de dibujo
   useEffect(() => {
@@ -84,6 +125,18 @@ export default function Slide02({ step }: { step: number }) {
         style={{ imageRendering: "pixelated" }}
       />
 
+      {/* botón principal: único lugar donde un clic avanza el juego */}
+      <button
+        onClick={advance}
+        disabled={!enabled}
+        className={`absolute right-7 top-[146px] flex w-[400px] items-center justify-center gap-3 border-4 border-[#222] px-4 py-3 text-[14px] leading-5 text-white shadow-[0_6px_0_rgba(0,0,0,0.45)] transition active:translate-y-1 active:shadow-none disabled:opacity-45 ${
+          phase === "final" ? "bg-[#e8453c]" : phase === "question" ? "bg-[#2f6fe4]" : "bg-[#2bb673]"
+        } ${phase === "question" && allIn ? "animate-pulse" : ""}`}
+        style={PIXEL}
+      >
+        <MainIcon className="h-4 w-4 shrink-0" /> {mainLabel}
+      </button>
+
       {phase === "lobby" && (
         <>
           {/* panel QR */}
@@ -111,7 +164,7 @@ export default function Slide02({ step }: { step: number }) {
               {host.count} {host.count === 1 ? "JUGADOR" : "JUGADORES"}
             </p>
             {host.ready && (
-              <p className="mt-4 animate-pulse text-[13px] leading-6">CLIC / → PARA EMPEZAR</p>
+              <p className="mt-4 animate-pulse text-[13px] leading-6">PULSA «EMPEZAR» ARRIBA A LA DERECHA</p>
             )}
           </div>
 

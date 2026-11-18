@@ -257,6 +257,12 @@ export default function PlayPage() {
             <h2 className="animate-pulse text-[18px] leading-8">¡PELEA!</h2>
             <p className="text-[11px] leading-5 text-[#9a9ac0]">MIRA LA PANTALLA</p>
           </Center>
+        ) : game.phase === "boss" ? (
+          <Center>
+            <Avatar seed={seed} pose="idle" />
+            <h2 className="animate-pulse text-[18px] leading-8 text-[#ff5a2a]">¡DINO JEFE!</h2>
+            <p className="text-[11px] leading-5 text-[#9a9ac0]">SOLO EL MEJOR PUEDE DERROTARLO. MIRA LA PANTALLA.</p>
+          </Center>
         ) : game.phase === "results" ? (
           <Center>
             <Avatar seed={seed} pose={myResult?.ok ? "cheer" : "ko"} />
@@ -277,6 +283,7 @@ export default function PlayPage() {
           <Center>
             <Avatar seed={seed} pose={myRank === 1 ? "cheer" : "idle"} />
             <h2 className="text-[18px] leading-8">{myRank === 1 ? "¡GANASTE!" : "FIN DEL JUEGO"}</h2>
+            {myRank === 1 && <p className="text-[12px] leading-6 text-[#2bb673]">PREMIO DESBLOQUEADO: UNA SABRITA</p>}
             <p className="text-[14px] leading-7 text-[#ffd84a]">LUGAR {myRank || "-"} · {myTotal} PTS</p>
             <p className="text-[10px] leading-5 text-[#9a9ac0]">¡GRACIAS POR JUGAR!</p>
           </Center>

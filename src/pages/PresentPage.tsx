@@ -6,6 +6,7 @@ import Chrome from "@/components/Chrome";
 import DeckErrorBoundary from "@/components/DeckErrorBoundary";
 import { useDeck } from "@/deck/DeckContext";
 import { SLIDES, isLightScene } from "@/config/presentation";
+import { quizGate } from "@/quiz/gate";
 import Slide01 from "@/slides/Slide01";
 import Slide02 from "@/slides/Slide02";
 import Slide03 from "@/slides/Slide03";
@@ -60,6 +61,13 @@ export default function PresentPage() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
+      if (SLIDES[deck.slide].id === "quiz") {
+        const nav: Record<string, number> = { ArrowRight: 1, " ": 1, PageDown: 1, ArrowLeft: -1, PageUp: -1 };
+        if (e.key in nav && !quizGate.allowKey(nav[e.key])) {
+          e.preventDefault();
+          return;
+        }
+      }
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       switch (e.key) {
         case "ArrowRight":
@@ -98,6 +106,7 @@ export default function PresentPage() {
 
   // clic en la zona derecha avanza; zona izquierda retrocede
   const onClickStage = (e: React.MouseEvent) => {
+    if (deck.meta.id === "quiz") return; // en el quiz solo avanzan los botones
     if ((e.target as HTMLElement).closest("button, a, input")) return;
     if (e.clientX > window.innerWidth * 0.66) deck.goNext();
     else if (e.clientX < window.innerWidth * 0.2) deck.goPrev();
@@ -110,6 +119,7 @@ export default function PresentPage() {
     touchStart.current = { x: t.clientX, y: t.clientY };
   };
   const onTouchEnd = (e: React.TouchEvent) => {
+    if (deck.meta.id === "quiz") return;
     const s = touchStart.current;
     touchStart.current = null;
     if (!s) return;

@@ -114,15 +114,16 @@ export default Saludo;`,
 export const POINTS_CORRECT = 3;
 export const POINTS_FASTEST_BONUS = 1;
 
-/** pasos de la diapositiva: lobby + (pregunta, pelea) × N + final */
-export const QUIZ_STEPS = 1 + QUESTIONS.length * 2 + 1;
+/** pasos de la diapositiva: lobby + (pregunta, pelea) × N + jefe (dino) + final */
+export const QUIZ_STEPS = 1 + QUESTIONS.length * 2 + 2;
 
-export type QuizPhase = "lobby" | "question" | "fight" | "results" | "final";
+export type QuizPhase = "lobby" | "question" | "fight" | "results" | "boss" | "final";
 
 /** traduce el paso de la diapositiva a fase del juego */
 export function phaseOfStep(step: number): { phase: QuizPhase; q: number } {
   if (step <= 0) return { phase: "lobby", q: 0 };
   if (step >= QUIZ_STEPS - 1) return { phase: "final", q: QUESTIONS.length - 1 };
+  if (step === QUIZ_STEPS - 2) return { phase: "boss", q: QUESTIONS.length - 1 };
   const i = step - 1;
   return { phase: i % 2 === 0 ? "question" : "fight", q: Math.floor(i / 2) };
 }

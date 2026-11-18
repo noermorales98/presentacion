@@ -24,6 +24,7 @@ interface DeckApi extends DeckState {
   goNext: () => void;
   goPrev: () => void;
   goTo: (i: number) => void;
+  goToStep: (i: number, step: number) => void;
   toggleRunning: () => void;
   resetTimer: () => void;
   openPresenter: () => void;
@@ -123,6 +124,17 @@ export function DeckProvider({ children }: { children: ReactNode }) {
     [broadcast]
   );
 
+  const goToStep = useCallback(
+    (i: number, step: number) => {
+      setState((s) => {
+        const next = { ...s, slide: clampSlide(i), step };
+        broadcast(next);
+        return next;
+      });
+    },
+    [broadcast]
+  );
+
   const toggleRunning = useCallback(() => {
     setState((s) => {
       const next = { ...s, running: !s.running };
@@ -179,11 +191,12 @@ export function DeckProvider({ children }: { children: ReactNode }) {
       goNext,
       goPrev,
       goTo,
+      goToStep,
       toggleRunning,
       resetTimer,
       openPresenter,
     }),
-    [state, goNext, goPrev, goTo, toggleRunning, resetTimer, openPresenter]
+    [state, goNext, goPrev, goTo, goToStep, toggleRunning, resetTimer, openPresenter]
   );
 
   return <DeckContext.Provider value={api}>{children}</DeckContext.Provider>;
