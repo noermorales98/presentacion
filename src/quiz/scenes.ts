@@ -75,7 +75,7 @@ export function drawBackground(c: CanvasRenderingContext2D, lv: Level, q: number
 
   // astro
   if (lv.celestial !== "none") {
-    const cx = 520, cy = 62;
+    const cx = 600, cy = 34;
     rect(c, cx - 14, cy - 10, 28, 20, lv.celestialColor);
     rect(c, cx - 10, cy - 14, 20, 28, lv.celestialColor);
     if (lv.celestial === "moon") {

@@ -156,9 +156,9 @@ export default function Slide02({ step }: { step: number }) {
 
           {/* título y contador */}
           <div className="absolute left-[460px] top-[90px] text-[#535353]">
-            <h2 className="text-[40px] leading-[56px]">¡ÚNETE AL QUIZ!</h2>
+            <h2 className="text-[46px] leading-[60px]">¡VENCE AL DINO!</h2>
             <p className="mt-3 text-[16px] leading-7">
-              PROGRAMACIÓN · {10} PREGUNTAS
+              QUIZ DE PROGRAMACIÓN · {QUESTIONS.length} PREGUNTAS
             </p>
             <p className="mt-5 text-[22px] text-[#e8453c]">
               {host.count} {host.count === 1 ? "JUGADOR" : "JUGADORES"}

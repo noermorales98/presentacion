@@ -160,6 +160,10 @@ export const sfx = {
   step() {
     tone(N(67), 0.05, { type: "triangle", vol: 0.1 });
   },
+  throw() {
+    noise(0.12, { vol: 0.12, highpass: 2500 });
+    tone(N(70), 0.1, { type: "triangle", vol: 0.06, slideTo: N(90) });
+  },
   roar() {
     noise(0.9, { vol: 0.35, lowpass: 500 });
     tone(N(36), 0.9, { type: "sawtooth", vol: 0.22, slideTo: N(28) });
