@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Open Sauce (SIL OFL 1.1, Alfredo Marco Pradil) — self-hosted en /public/fonts */
+@font-face {
+  font-family: "Open Sauce Two";
+  src: url("/fonts/OpenSauceTwo-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Open Sauce Two";
+  src: url("/fonts/OpenSauceTwo-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Open Sauce Sans";
+  src: url("/fonts/OpenSauceSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Open Sauce Sans";
+  src: url("/fonts/OpenSauceSans-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Open Sauce Sans";
+  src: url("/fonts/OpenSauceSans-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Open Sauce Sans";
+  src: url("/fonts/OpenSauceSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Títulos: Open Sauce Two siempre en peso 400 con tracking negativo
+   (look ligero y compacto); regla sin capa para ganar a las utilidades */
+.font-grotesk {
+  font-weight: 400 !important;
+  letter-spacing: -0.02em;
+}
+
+@layer base {
+  :root {
+    --background: 246 33% 6%;
+    --foreground: 40 30% 92%;
+    --card: 246 25% 9%;
+    --card-foreground: 40 30% 92%;
+    --popover: 246 25% 9%;
+    --popover-foreground: 40 30% 92%;
+    --primary: 227 100% 59%;
+    --primary-foreground: 40 30% 92%;
+    --secondary: 246 20% 14%;
+    --secondary-foreground: 40 30% 92%;
+    --muted: 246 15% 16%;
+    --muted-foreground: 246 10% 60%;
+    --accent: 227 100% 59%;
+    --accent-foreground: 40 30% 92%;
+    --destructive: 4 80% 58%;
+    --destructive-foreground: 40 30% 92%;
+    --border: 40 20% 92%;
+    --input: 246 15% 20%;
+    --ring: 227 100% 59%;
+    --radius: 1rem;
+  }
+
+  * {
+    @apply border-line;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    background: #0b0b18;
+  }
+
+  body {
+    @apply bg-ink text-bone font-grotesk antialiased;
+    overflow: hidden;
+  }
+
+  ::selection {
+    background: #2f5bff;
+    color: #f2ede3;
+  }
+
+  :focus-visible {
+    outline: 2px solid #2f5bff;
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .grid-faint {
+    background-image:
+      linear-gradient(rgba(242, 237, 227, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(242, 237, 227, 0.035) 1px, transparent 1px);
+    background-size: 72px 72px;
+  }
+  .grid-faint-dark {
+    background-image:
+      linear-gradient(rgba(11, 11, 24, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(11, 11, 24, 0.06) 1px, transparent 1px);
+    background-size: 72px 72px;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* grano fílmico cinematográfico, pronunciado */
+  .film-grain {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.7'/></svg>");
+    background-size: 260px 260px;
+    opacity: 0.12;
+  }
+  .film-grain-b {
+    background-size: 180px 180px;
+    opacity: 0.05;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
