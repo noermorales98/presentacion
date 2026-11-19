@@ -1,90 +1,72 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
-import { Lock, ArrowUpLeft } from "lucide-react";
-import { Kicker, MediaSlot } from "@/components/ui";
+import { MessageSquare, UserRound, Bot } from "lucide-react";
+import { Kicker } from "@/components/ui";
 
-const HOTSPOTS = [
-  { id: "clientes", label: "Clientes", x: 16, y: 30, desc: "Alta y seguimiento de clientes" },
-  { id: "pipeline", label: "Pipeline", x: 50, y: 58, desc: "Etapas del proceso comercial" },
-  { id: "tareas", label: "Tareas", x: 82, y: 34, desc: "Recordatorios y actividad del día" },
+const LEVELS = [
+  { icon: MessageSquare, name: "Chat", desc: "Responde.", detail: "Pregunta → respuesta. No recuerda ni actúa." },
+  { icon: UserRound, name: "Asistente", desc: "Trabaja con contexto.", detail: "Recuerda el hilo, tu proyecto y tus preferencias." },
+  { icon: Bot, name: "Agente", desc: "Usa herramientas y ejecuta pasos.", detail: "Planea, llama herramientas y completa tareas." },
 ];
 
-/** Mockup de navegador con placeholders para capturas reales del CRM.
- *  Sustituir: guardar capturas en src/assets/crm/ e importarlas (ver README). */
-export default function Slide05() {
-  const [active, setActive] = useState<(typeof HOTSPOTS)[number] | null>(null);
+const PROMPT_BAD = `Hazme un CRM.`;
 
+const PROMPT_GOOD = `Contexto: CRM para seguimiento de clientes en Next.js 14.
+Tarea: agregar filtro por etapa del pipeline en la tabla de clientes.
+Restricciones: no tocar la API de pagos; TypeScript estricto.
+Criterios de aceptación: el filtro persiste al recargar y tiene prueba unitaria.`;
+
+/** todo visible a la vez: escalera Chat → Asistente → Agente y, debajo, prompt pobre vs. con contexto */
+export default function Slide05() {
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Kicker>Demo · CRM</Kicker>
-          <h2 className="mt-4 font-grotesk text-4xl font-bold tracking-tight md:text-6xl">
-            Lo que <span className="text-volt">construí</span>
-          </h2>
-        </div>
-        <p className="max-w-sm font-mono text-[11px] leading-relaxed text-smoke">
-          Pasa el cursor sobre los puntos para señalar módulos. Las capturas son
-          placeholders: agrégalas en src/assets/crm/ antes de la charla.
-        </p>
-      </div>
+      <Kicker>Cómo hablarle a la IA</Kicker>
+      <h2 className="mt-4 font-grotesk text-4xl font-bold tracking-tight md:text-6xl">
+        Mientras mejor le hablas, <span className="text-volt">mejor responde</span>
+      </h2>
 
-      <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, delay: 0.15 }}
-        className="mt-8 flex-1 overflow-hidden rounded-2xl border border-line bg-panel/70"
-      >
-        {/* barra del navegador */}
-        <div className="flex items-center gap-3 border-b border-line px-4 py-2.5">
-          <div className="flex gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-bone/15" />
-            <span className="h-2.5 w-2.5 rounded-full bg-bone/15" />
-            <span className="h-2.5 w-2.5 rounded-full bg-bone/15" />
-          </div>
-          <div className="flex flex-1 items-center gap-2 border border-line bg-ink px-3 py-1 font-mono text-[11px] text-smoke">
-            <Lock className="h-3 w-3 text-volt" /> crm.noxy.digital
-          </div>
-        </div>
-
-        <div className="grid h-[calc(100%-49px)] grid-cols-1 gap-3 p-3 md:grid-cols-3">
-          {HOTSPOTS.map((h) => (
-            <div key={h.id} className="relative min-h-0">
-              <div className="h-full overflow-hidden">
-                <MediaSlot
-                  label={`Captura · ${h.label}`}
-                  hint="Reemplazar con imagen real (README → Agregar capturas)"
-                  ratio="4/3"
-                />
-              </div>
-              <button
-                onClick={() => setActive(active?.id === h.id ? null : h)}
-                onMouseEnter={() => setActive(h)}
-                className="absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-volt bg-ink/80 text-volt transition-transform hover:scale-110"
-                aria-label={`Señalar módulo ${h.label}`}
+      <div className="mt-8 flex flex-1 flex-col justify-center gap-8">
+        <div className="grid grid-cols-3 items-end gap-5">
+          {LEVELS.map((lv, i) => {
+            const last = i === LEVELS.length - 1;
+            return (
+              <motion.div
+                key={lv.name}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 + i * 0.12, duration: 0.5 }}
+                style={{ minHeight: 150 + i * 36 }}
+                className={`flex flex-col justify-end rounded-xl border p-5 ${last ? "border-volt/50 bg-volt/[0.04] backdrop-blur-md" : "border-line bg-panel/50 backdrop-blur-md"}`}
               >
-                <ArrowUpLeft className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+                <div className="flex items-center gap-3">
+                  <lv.icon className={`h-7 w-7 ${last ? "text-volt" : "text-bone/80"}`} strokeWidth={1.4} />
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-kicker text-smoke">escalón {i + 1}</p>
+                    <h3 className="font-grotesk text-2xl font-bold">{lv.name}</h3>
+                  </div>
+                </div>
+                <p className={`mt-3 font-grotesk text-lg ${last ? "text-volt" : "text-bone/85"}`}>{lv.desc}</p>
+                <p className="mt-2 font-mono text-[12px] leading-relaxed text-smoke">{lv.detail}</p>
+              </motion.div>
+            );
+          })}
         </div>
-      </motion.div>
 
-      <div className="mt-4 flex h-10 items-center">
-        {active ? (
-          <motion.p
-            key={active.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="font-mono text-xs uppercase tracking-widest text-volt"
-          >
-            {active.label} — <span className="text-bone/80 normal-case tracking-normal">{active.desc}</span>
-          </motion.p>
-        ) : (
-          <p className="font-mono text-[11px] uppercase tracking-widest text-smoke">
-            Tres módulos principales · arquitectura por fases
-          </p>
-        )}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.55 }}
+          className="grid grid-cols-[1fr_1.5fr] gap-5"
+        >
+          <div className="rounded-xl border border-red-400/40 p-5">
+            <p className="font-mono text-[10px] uppercase tracking-kicker text-red-400">prompt pobre</p>
+            <p className="mt-3 font-mono text-lg text-bone/80">“{PROMPT_BAD}”</p>
+            <p className="mt-3 font-mono text-[11px] text-smoke">Sin contexto, sin restricciones, sin criterios de éxito.</p>
+          </div>
+          <div className="rounded-xl border border-volt/50 p-5">
+            <p className="font-mono text-[10px] uppercase tracking-kicker text-volt">prompt con contexto y criterios</p>
+            <p className="mt-3 whitespace-pre-line font-mono text-[12.5px] leading-relaxed text-bone/85">{PROMPT_GOOD}</p>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

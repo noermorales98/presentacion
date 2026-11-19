@@ -34,7 +34,14 @@ export default defineConfig({
         // La presentación, diagramas y terminal simulada funcionan offline.
         navigateFallback: "index.html",
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        globPatterns: ["**/*.{js,wasm,css,html,ico,png,jpg,avif,svg,webmanifest,ttf,woff,woff2}"],
         runtimeCaching: [
+          {
+            // videos: caché primero, con Range (reproducción desde caché)
+            urlPattern: /\.mp4$/i,
+            handler: "CacheFirst",
+            options: { cacheName: "noxy-videos", rangeRequests: true, cacheableResponse: { statuses: [200] } },
+          },
           {
             // fuentes de Google Fonts: caché en tiempo de ejecución
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,

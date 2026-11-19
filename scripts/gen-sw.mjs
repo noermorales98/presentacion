@@ -35,7 +35,7 @@ if (!found) {
 await generateSW({
   swDest: path.join(DIST, "sw.js"),
   globDirectory: DIST,
-  globPatterns: ["**/*.{js,wasm,css,html,ico,png,svg,webmanifest,ttf}"],
+  globPatterns: ["**/*.{js,wasm,css,html,ico,png,jpg,avif,svg,webmanifest,ttf,woff,woff2}"],
   globIgnores: ["sw.js", "workbox-*.js"],
   navigateFallback: "index.html",
   maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
@@ -43,6 +43,16 @@ await generateSW({
   clientsClaim: true,
   cleanupOutdatedCaches: true,
   runtimeCaching: [
+    {
+      // videos: caché primero, con soporte de Range (necesario para reproducir/repetir video desde caché)
+      urlPattern: /\.mp4$/i,
+      handler: "CacheFirst",
+      options: {
+        cacheName: "noxy-videos",
+        rangeRequests: true,
+        cacheableResponse: { statuses: [200] },
+      },
+    },
     {
       // fuentes de Google Fonts: caché en tiempo de ejecución
       urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,

@@ -10,7 +10,7 @@ function fmt(sec: number): string {
 }
 
 /** Vista del presentador: notas privadas, cronómetro, control del deck.
- *  No proyectar esta ventana. Se abre con P desde /present. */
+ *  No proyectar esta ventana. Se abre con P desde la pantalla principal (/1…). */
 export default function PresenterPage() {
   const deck = useDeck();
 

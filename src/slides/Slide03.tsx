@@ -76,7 +76,7 @@ export default function Slide03({ step }: { step: number }) {
                   Decisiones que ningún modelo toma por ti.
                 </p>
               </div>
-              <div className="relative h-[300px] rounded-2xl border border-line bg-panel/60 md:h-[340px]">
+              <div className="relative h-[300px] rounded-2xl border border-line bg-panel/60 backdrop-blur-md md:h-[340px]">
                 <svg viewBox="0 0 100 84" className="absolute inset-0 h-full w-full" aria-hidden>
                   {EDGES.map(([a, b], i) => (
                     <motion.line

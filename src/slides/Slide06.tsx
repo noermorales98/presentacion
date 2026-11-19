@@ -1,115 +1,109 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Search,
-  ClipboardList,
-  Code2,
-  FlaskConical,
-  Eye,
-  ArrowRight,
-  ArrowDown,
-} from "lucide-react";
-import { Kicker, Reveal, ActionButton } from "@/components/ui";
+import { motion } from "framer-motion";
+import { Sparkles, Zap, SquareTerminal, Waypoints, MessageCircleQuestion, ArrowRight } from "lucide-react";
+import { Kicker } from "@/components/ui";
 
-const STAGES = [
-  { icon: Search, label: "Investigar" },
-  { icon: ClipboardList, label: "Planear" },
-  { icon: Code2, label: "Programar" },
-  { icon: FlaskConical, label: "Probar" },
-  { icon: Eye, label: "Revisar" },
+const asset = (f: string) => `${import.meta.env.BASE_URL}${f}`;
+
+const OTHERS = [
+  { icon: Zap, name: "Grok Bot", desc: "Automatiza tareas y apps conectadas.", logo: "grok-bot-logo.png" },
+  { icon: SquareTerminal, name: "Hermes", desc: "Agente configurable desde la terminal.", logo: "hermes.png" },
+  { icon: Waypoints, name: "OpenRouter", desc: "Una sola integración, muchos modelos.", logo: "openrouter.avif" },
 ];
 
-const PROMPT_BAD = `Hazme un CRM.`;
+/** hueco claramente marcado donde irían logos o videos reales */
+function LogoSlot({ name, src }: { name: string; src?: string }) {
+  if (src)
+    return <img src={asset(src)} alt={`Logo de ${name}`} className="h-12 w-12 shrink-0 rounded-lg object-cover" />;
+  return (
+    <span
+      className="flex h-12 w-12 shrink-0 flex-col items-center justify-center border border-dashed border-bone/25 bg-bone/[0.03] backdrop-blur-md text-center font-mono text-[8px] uppercase leading-tight text-smoke"
+      title={`Logo oficial de ${name} pendiente`}
+    >
+      logo
+      <br />
+      pendiente
+    </span>
+  );
+}
 
-const PROMPT_GOOD = `Contexto: CRM para seguimiento de clientes en Next.js 14.
-Tarea: agregar filtro por etapa del pipeline en la tabla de clientes.
-Restricciones: no tocar la API de pagos; TypeScript estricto.
-Criterios de aceptación: el filtro persiste al recargar y tiene prueba unitaria.`;
-
-/** paso 0: etapas · paso 1: comparación de prompts */
-export default function Slide06({ step }: { step: number }) {
-  const [good, setGood] = useState(false);
-
+export default function Slide06() {
   return (
     <div className="flex h-full flex-col">
-      <Kicker>Método</Kicker>
+      <Kicker>Mis herramientas</Kicker>
       <h2 className="mt-4 font-grotesk text-4xl font-bold tracking-tight md:text-6xl">
-        Mi forma de trabajar <span className="text-volt">con IA</span>
+        Con qué <span className="text-volt">construyo</span>
       </h2>
 
-      <div className="mt-10 flex flex-1 flex-col justify-center">
-        <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center md:gap-0">
-          {STAGES.map((s, i) => (
-            <div key={s.label} className="flex flex-1 items-center gap-2 md:gap-0">
-              <motion.div
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + i * 0.12, duration: 0.5 }}
-                className="flex flex-1 flex-col items-start gap-3 rounded-xl border border-line bg-panel/60 p-4 md:p-5"
-              >
-                <s.icon className="h-7 w-7 text-volt" strokeWidth={1.5} />
-                <div>
-                  <p className="font-mono text-[10px] uppercase tracking-kicker text-smoke">
-                    etapa {String(i + 1).padStart(2, "0")}
-                  </p>
-                  <p className="mt-0.5 font-grotesk text-lg font-semibold md:text-xl">{s.label}</p>
-                </div>
-              </motion.div>
-              {i < STAGES.length - 1 && (
-                <ArrowRight className="mx-1 hidden h-5 w-5 shrink-0 text-smoke md:block" />
-              )}
+      <div className="mt-8 grid flex-1 grid-cols-1 gap-5 md:grid-cols-[1.5fr_1fr]">
+        {/* 1 · destacada */}
+        <motion.article
+          initial={{ opacity: 0, y: 26 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.55 }}
+          className="flex min-h-0 flex-col rounded-2xl border border-volt/50 bg-volt/[0.05] backdrop-blur-md p-7"
+        >
+          <div className="flex items-center gap-4">
+            <LogoSlot name="Claude" src="claude.jpg" />
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-kicker text-volt">1 · destacada</p>
+              <h3 className="font-grotesk text-3xl font-bold">Claude + MCP</h3>
             </div>
+            <Sparkles className="ml-auto h-6 w-6 text-volt" strokeWidth={1.4} />
+          </div>
+
+          <p className="mt-4 font-grotesk text-3xl font-bold leading-tight">
+            Le hablo a <span className="text-volt">mi CRM</span>.
+          </p>
+
+          <div className="mt-5 grid flex-1 grid-cols-[1fr_auto_1fr] items-stretch gap-4">
+            <div className="rounded-xl border border-line flex flex-col justify-center bg-ink/60 backdrop-blur-md p-5">
+              <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-kicker text-smoke">
+                <MessageCircleQuestion className="h-3.5 w-3.5" /> pregunta
+              </p>
+              <p className="mt-2 font-grotesk text-2xl leading-snug text-bone/90">“¿Qué clientes llevan una semana sin seguimiento?”</p>
+            </div>
+            <div className="flex items-center">
+              <ArrowRight className="h-4 w-4 text-volt" />
+            </div>
+            <div className="rounded-xl border border-volt/40 flex flex-col justify-center bg-ink/60 backdrop-blur-md p-5">
+              <p className="font-mono text-[10px] uppercase tracking-kicker text-volt">acción</p>
+              <p className="mt-2 font-grotesk text-2xl leading-snug text-bone/90">“Crea un recordatorio para esos clientes.”</p>
+            </div>
+          </div>
+
+          {/* video (public/02.mp4, muy panorámico): lo más grande que quepa */}
+          <video
+            src={`${import.meta.env.BASE_URL}02.mp4`}
+            muted
+            preload="auto"
+            loop
+            autoPlay
+            playsInline
+            className="mt-5 block w-full rounded-xl border border-line"
+          />
+        </motion.article>
+
+        {/* 2–4 */}
+        <div className="flex min-h-0 flex-col gap-5">
+          {OTHERS.map((o, i) => (
+            <motion.article
+              key={o.name}
+              initial={{ opacity: 0, y: 26 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 + i * 0.12, duration: 0.55 }}
+              className="flex flex-1 items-center gap-4 rounded-2xl border border-line bg-panel/60 backdrop-blur-md p-5"
+            >
+              <LogoSlot name={o.name} src={o.logo} />
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-kicker text-smoke">{i + 2}</p>
+                <h3 className="flex items-center gap-2 font-grotesk text-2xl font-bold">
+                  {o.name} <o.icon className="h-4 w-4 text-volt" strokeWidth={1.5} />
+                </h3>
+                <p className="mt-1 font-grotesk text-base leading-snug text-bone/80">{o.desc}</p>
+              </div>
+            </motion.article>
           ))}
         </div>
-
-        <AnimatePresence>
-          {step >= 1 && (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.55 }}
-              className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-[1fr_auto_1fr]"
-            >
-              <div className={`rounded-xl border p-5 transition-colors ${good ? "border-line opacity-50" : "border-red-400/40"}`}>
-                <p className="font-mono text-[10px] uppercase tracking-kicker text-red-400">
-                  prompt deficiente
-                </p>
-                <p className="mt-3 font-mono text-sm text-bone/80">“{PROMPT_BAD}”</p>
-                <p className="mt-3 font-mono text-[11px] text-smoke">
-                  Sin contexto, sin restricciones, sin criterios de éxito.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-center">
-                <ActionButton tone="ghost" onClick={() => setGood((g) => !g)}>
-                  {good ? "ver el malo" : "comparar →"}
-                </ActionButton>
-              </div>
-
-              <motion.div
-                animate={{ opacity: good ? 1 : 0.45, scale: good ? 1 : 0.99 }}
-                className={`rounded-xl border p-5 transition-colors ${good ? "border-volt/50" : "border-line"}`}
-              >
-                <p className="font-mono text-[10px] uppercase tracking-kicker text-volt">
-                  prompt con contexto
-                </p>
-                <p className="mt-3 whitespace-pre-line font-mono text-[12px] leading-relaxed text-bone/80">
-                  {PROMPT_GOOD}
-                </p>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {step < 1 && (
-          <Reveal delay={0.8} className="mt-10 flex items-center gap-2 text-smoke">
-            <ArrowDown className="h-4 w-4" />
-            <span className="font-mono text-[11px] uppercase tracking-widest">
-              espacio → comparación de prompts
-            </span>
-          </Reveal>
-        )}
       </div>
     </div>
   );

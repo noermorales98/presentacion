@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { motion, animate, useInView } from "framer-motion";
+import { type ReactNode } from "react";
+import { motion } from "framer-motion";
 
 /** kicker en mono, etiqueta superior de cada escena */
 export function Kicker({ children, tone = "volt" }: { children: ReactNode; tone?: "volt" | "smoke" | "blue" }) {
@@ -38,43 +38,6 @@ export function Reveal({
   );
 }
 
-/** número que cuenta hacia arriba al aparecer */
-export function Counter({
-  to,
-  prefix = "",
-  suffix = "",
-  duration = 1.4,
-  className = "",
-}: {
-  to: number;
-  prefix?: string;
-  suffix?: string;
-  duration?: number;
-  className?: string;
-}) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
-  const [val, setVal] = useState(0);
-
-  useEffect(() => {
-    if (!inView) return;
-    const controls = animate(0, to, {
-      duration,
-      ease: [0.22, 1, 0.36, 1],
-      onUpdate: (v) => setVal(Math.round(v)),
-    });
-    return () => controls.stop();
-  }, [inView, to, duration]);
-
-  return (
-    <span ref={ref} className={`tabular ${className}`}>
-      {prefix}
-      {val.toLocaleString("es-MX")}
-      {suffix}
-    </span>
-  );
-}
-
 /** etiqueta pequeña de datos */
 export function Tag({ children, tone = "line" }: { children: ReactNode; tone?: "line" | "volt" | "blue" | "red" }) {
   const map = {
@@ -94,7 +57,7 @@ export function Tag({ children, tone = "line" }: { children: ReactNode; tone?: "
 export function CodeBlock({ code, lang = "tsx", highlight }: { code: string; lang?: string; highlight?: number[] }) {
   const lines = code.replace(/\n$/, "").split("\n");
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-[#0d0d1c]/90">
+    <div className="overflow-hidden rounded-2xl border border-line bg-[#0d0d1c]/90 backdrop-blur-md">
       <div className="flex items-center justify-between border-b border-line px-4 py-2">
         <div className="flex gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-bone/15" />
@@ -151,7 +114,7 @@ export function MediaSlot({
 }) {
   return (
     <div
-      className="relative flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-bone/25 bg-bone/[0.03]"
+      className="relative flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-bone/25 bg-bone/[0.03] backdrop-blur-md"
       style={{ aspectRatio: ratio }}
     >
       <span className="font-mono text-[10px] uppercase tracking-kicker text-volt">placeholder</span>

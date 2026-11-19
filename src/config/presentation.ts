@@ -40,6 +40,8 @@ export const TALK = {
   /** duración de referencia solo para el cronómetro de la vista de presentador (privada) */
   durationMin: 30,
   siteUrl: "https://noxy.digital",
+  /** QR final: seguirme en redes */
+  linksUrl: "https://noxy.digital/links",
 };
 
 /** luminancia simple: escenas claras (portada/cierre) necesitan texto y HUD oscuros */
@@ -58,7 +60,7 @@ export const SLIDES: SlideMeta[] = [
     steps: 1,
     scene: { bg: "#F2EDE3", mix: 0.55, tiltX: 0.42, tiltY: -0.18, ringSpeed: 0.05, drift: 0.012, ringScale: 1.0, ringOpacity: 0.85 },
     notes:
-      "Saludo rápido (30 s). Presentarme como Noe, fundador de Noxy Digital Studio en Cancún. Plantar la pregunta del título y dejar que respire 2 segundos antes de empezar. Anunciar que abriremos con un quiz en vivo desde el teléfono para despertar atención.",
+      "(1 min) Todo el texto aparece solo, sin clics. Dejar el título en pantalla y SILENCIO de 2-3 segundos antes de hablar. Luego lanzar la pregunta: 'Hoy cualquiera crea software sin saber programar. ¿Dónde quedamos nosotros?' y dejar que respire. Presentarme: Noe, fundador de Noxy Digital Studio, Cancún. 'Hace [X] años escribía todo el código a mano. Hoy dirijo IA para construirlo.' → COMPLETAR [X] en Slide01.tsx con los años reales antes de la charla. Cerrar anunciando el quiz en vivo desde el teléfono.",
   },
   {
     id: "quiz",
@@ -77,60 +79,28 @@ export const SLIDES: SlideMeta[] = [
       "Mostrar el editor con la frase 'Escribir código es solo una parte' visible desde el inicio; un clic revela la arquitectura. La idea: el valor está en el sistema completo, no en la sintaxis. Preguntar a la sala: ¿qué es más difícil de mantener, código o decisiones?",
   },
   {
-    id: "dos-crm",
-    kicker: "CASO REAL",
-    steps: 2,
+    id: "demo-noxthy",
+    kicker: "",
+    steps: 1,
     scene: { bg: "#0B0B18", mix: 0.5, tiltX: 0.35, tiltY: 0.15, ringSpeed: 0.06, drift: 0.025, ringScale: 0.95, ringOpacity: 0.8 },
     notes:
-      "Contar los dos proyectos sin vender humo: 6 meses / 2 programadores para el CRM de cliente; ~1 mes / 1 persona con IA para el otro CRM. Paso 2 revela los números con contadores. Aclaración obligatoria: son proyectos distintos, NO es una comparación directa de productividad.",
+      "(5 min) Decir desde el inicio: es un ejemplo de lo que se puede hacer con IA, NO es una venta. Salir de la presentación y mostrar el CRM noxthy.co en vivo. Explicar qué funciones usan IA por dentro y cómo usarlas. No afirmar funcionalidades que no se muestren. El video public/01.mp4 ya está en la escena (Desarrollo de Software más rápido: con IA hago el trabajo de varias personas); también sirve de respaldo si falla internet. Volver a la presentación con la tecla de flecha.",
   },
   {
-    id: "lo-que-construi",
-    kicker: "DEMO · CRM",
+    id: "hablarle-a-la-ia",
+    kicker: "CÓMO HABLARLE A LA IA",
     steps: 1,
-    scene: { bg: "#050508", mix: 0.3, tiltX: 0.5, tiltY: -0.25, ringSpeed: 0.04, drift: 0.015, ringScale: 1.05, ringOpacity: 0.65 },
-    notes:
-      "Antes de exponer, reemplazar los placeholders en src/assets/crm/ con capturas reales (ver README). Mencionar módulos: clientes, seguimiento, pipeline. Si hay video corto, insertarlo en la zona indicada. No afirmar funcionalidades que no se muestren.",
-  },
-  {
-    id: "flujo-ia",
-    kicker: "MÉTODO",
-    steps: 2,
-    scene: { bg: "#0B0B18", mix: 0.7, tiltX: 0.28, tiltY: 0.4, ringSpeed: 0.1, drift: 0.035, ringScale: 0.9, ringOpacity: 0.85 },
-    notes:
-      "Cinco etapas: Investigar → Planear → Programar → Probar → Revisar. Paso 2 abre la comparación de prompts: mostrar primero el prompt pobre, pedir a la sala que detecte qué le falta, luego revelar el prompt con contexto y criterios de aceptación.",
-  },
-  {
-    id: "chat-asistente-agente",
-    kicker: "CONCEPTO CLAVE",
-    steps: 3,
     scene: { bg: "#050508", mix: 0.4, tiltX: 0.85, tiltY: -0.1, ringSpeed: 0.08, drift: 0.03, ringScale: 1.0, ringOpacity: 0.75 },
     notes:
-      "Tres niveles en pasos: Chat (responde), Asistente (contexto), Agente (herramientas y pasos). Cerrar con el flujo Modelo → Herramienta → Acción → Resultado → Evaluación y recalcar: supervisión humana y permisos explícitos siempre.",
+      "(3 min) Todo visible de una vez. Arriba, la escalera: Chat (responde) → Asistente (contexto) → Agente (herramientas y pasos); supervisión humana y permisos explícitos siempre. Abajo, un prompt pobre (\'Hazme un CRM\') contra uno con contexto, restricciones y criterios de aceptación; pedir a la sala qué le falta al pobre. Mensaje: mientras mejor le hablas, mejor responde.",
   },
   {
-    id: "grok-hermes",
-    kicker: "AGENTES PROPIOS",
+    id: "mis-herramientas",
+    kicker: "MIS HERRAMIENTAS",
     steps: 1,
-    scene: { bg: "#0B0B18", mix: 0.9, tiltX: 0.55, tiltY: 0.35, ringSpeed: 0.18, drift: 0.06, ringScale: 0.85, ringOpacity: 0.9 },
+    scene: { bg: "#0B0B18", mix: 0.7, tiltX: 0.28, tiltY: 0.4, ringSpeed: 0.1, drift: 0.035, ringScale: 0.9, ringOpacity: 0.85 },
     notes:
-      "Grok Bot: automatización de tareas y apps conectadas. Hermes: terminal y agente configurable. Los logos y videos son placeholders hasta agregar los oficiales (src/assets/agents/). Hablar de lo que hacen, no ejecutar nada en vivo salvo que se haya preparado demo real.",
-  },
-  {
-    id: "openrouter",
-    kicker: "STACK · OPENROUTER",
-    steps: 2,
-    scene: { bg: "#050508", mix: 0.5, tiltX: 0.2, tiltY: 0.5, ringSpeed: 0.22, drift: 0.04, ringScale: 1.15, ringOpacity: 0.9 },
-    notes:
-      "Explicar el diagrama: mi aplicación → OpenRouter → muchos modelos con una sola API. Paso 2 abre el selector de modelos. Los datos de costo/velocidad son DEMOSTRATIVOS (etiqueta visible), no precios reales: verificarlos siempre en openrouter.ai.",
-  },
-  {
-    id: "demostracion",
-    kicker: "DEMO EN VIVO",
-    steps: 5,
-    scene: { bg: "#0B0B18", mix: 0.2, tiltX: 1.25, tiltY: -0.4, ringSpeed: 0.1, drift: 0.025, ringScale: 0.95, ringOpacity: 0.7 },
-    notes:
-      "Terminal SIMULADA y claramente etiquetada: no es un agente real. Avanzar con flecha derecha / espacio por las 5 etapas: inspección, plan, cambios, pruebas, revisión. El ritmo lo marco yo con el teclado. Si algo falla en vivo, tener la demo real grabada en la zona preparada.",
+      "(7 min) Claude + MCP: 3 min. Es la destacada: 'le hablo a mi CRM'. Pregunta: '¿Qué clientes llevan una semana sin seguimiento?'; acción: 'Crea un recordatorio para esos clientes'. Mostrar demo real solo si está preparada. Grok Bot: 1 min — automatiza tareas y apps conectadas. Hermes: 1 min — agente configurable desde la terminal. OpenRouter: 1 min — una sola integración, muchos modelos (no dar precios ni velocidades; verificarlos en openrouter.ai si preguntan). El video de Claude + MCP (public/02.mp4) se reproduce solo en la tarjeta.",
   },
   {
     id: "ia-se-equivoca",
@@ -138,14 +108,22 @@ export const SLIDES: SlideMeta[] = [
     steps: 2,
     scene: { bg: "#050508", mix: 0.08, tiltX: 0.9, tiltY: -0.2, ringSpeed: 0.03, drift: 0.012, ringScale: 1.0, ringOpacity: 0.6 },
     notes:
-      "Leer el código en voz alta. Votación: ¿lo aprueban sí o no? Paso 2 revela el error (concatenación directa → inyección SQL) y junto a él la versión corregida con consulta parametrizada. Mensaje: la IA acelera, pero la responsabilidad de revisar sigue siendo del desarrollador.",
+      "(3 min) Leer el código en voz alta y votar: ¿lo aprobarías? (Sí / No, espera…). Clic 2 revela: error = clave escrita en el código; riesgo = al subirlo a GitHub cualquiera la ve y gasta tu dinero; corrección = import.meta.env.VITE_OPENROUTER_KEY y un .env en .gitignore. Matiz importante: las variables VITE_ se incluyen en el JavaScript del navegador, así que se ven igual; para claves sensibles hay que usar un backend que guarde la clave y llame a OpenRouter. La clave del ejemplo es falsa. Mensaje: la IA te da código que funciona, no siempre código seguro.",
+  },
+  {
+    id: "pregunta-final",
+    kicker: "CIERRE",
+    steps: 1,
+    scene: { bg: "#F2EDE3", mix: 0.78, tiltX: 0.45, tiltY: 0.2, ringSpeed: 0.07, drift: 0.03, ringScale: 1.0, ringOpacity: 0.85 },
+    notes:
+      "(1 min) Pregunta a la sala: 'Si tuvieras a un empresario famoso de frente, ¿qué le preguntarías?' Dejar 2-3 respuestas. Puente: no necesitan un empresario famoso; tienen profesores, libros, cursos. Estudien. Aprendan.",
   },
   {
     id: "cierre",
     kicker: "CIERRE",
-    steps: 2,
-    scene: { bg: "#F2EDE3", mix: 0.78, tiltX: 0.45, tiltY: 0.2, ringSpeed: 0.07, drift: 0.03, ringScale: 1.0, ringOpacity: 0.85 },
+    steps: 1,
+    scene: { bg: "#F2EDE3", mix: 0.4, tiltX: 0.3, tiltY: 0.1, ringSpeed: 0.06, drift: 0.025, ringScale: 1.05, ringOpacity: 0.85 },
     notes:
-      "Minimalismo total. Paso 1: 'Aprende a programar.' (pausa larga). Paso 2: 'Pero, sobre todo, aprende a construir.' Agradecer, mostrar el QR hacia noxy.digital y abrir 2-3 preguntas de la sala si el tiempo lo permite.",
+      "(1 min) 'Aprende a programar. Pero, sobre todo, aprende a construir.' Pausa larga. El QR lleva a noxy.digital/links para seguirme en redes (noxthy.co es solo el CRM). Agradecer y abrir 2-3 preguntas si hay tiempo.",
   },
 ];

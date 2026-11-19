@@ -16,13 +16,10 @@ import Slide06 from "@/slides/Slide06";
 import Slide07 from "@/slides/Slide07";
 import Slide08 from "@/slides/Slide08";
 import Slide09 from "@/slides/Slide09";
-import Slide10 from "@/slides/Slide10";
-import Slide11 from "@/slides/Slide11";
-import Slide12 from "@/slides/Slide12";
 
 const SLIDE_COMPONENTS: ComponentType<{ step: number }>[] = [
-  Slide01, Slide02, Slide03, Slide04, Slide05, Slide06,
-  Slide07, Slide08, Slide09, Slide10, Slide11, Slide12,
+  Slide01, Slide02, Slide03, Slide04,
+  Slide05, Slide06, Slide07, Slide08, Slide09,
 ];
 
 /** lienzo de diseño 16:9 — todo el contenido se dibuja aquí y se escala a la pantalla real */
@@ -63,6 +60,12 @@ export default function PresentPage() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (SLIDES[deck.slide].id === "quiz") {
         const nav: Record<string, number> = { ArrowRight: 1, " ": 1, PageDown: 1, ArrowLeft: -1, PageUp: -1 };
+        // en el lobby (sin haber empezado) → omite el quiz y pasa a la siguiente escena
+        if (e.key in nav && nav[e.key] > 0 && deck.step === 0) {
+          e.preventDefault();
+          deck.goTo(deck.slide + 1);
+          return;
+        }
         if (e.key in nav && !quizGate.allowKey(nav[e.key])) {
           e.preventDefault();
           return;
