@@ -53,26 +53,69 @@ export function Tag({ children, tone = "line" }: { children: ReactNode; tone?: "
   );
 }
 
-/** bloque de código con numeración sutil */
-export function CodeBlock({ code, lang = "tsx", highlight }: { code: string; lang?: string; highlight?: number[] }) {
+const KEYWORDS = new Set([
+  "function", "const", "let", "var", "return", "if", "else", "await", "async", "import", "from", "export", "new", "true", "false", "null",
+]);
+
+/** resaltado de sintaxis mínimo (palabras clave, cadenas, números, comentarios, llamadas) */
+function highlightLine(ln: string): ReactNode[] {
+  const re = /(\/\/.*$|#.*$)|("[^"]*"|'[^']*'|`[^`]*`)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)(\s*\()?|(\s+|.)/g;
+  const out: ReactNode[] = [];
+  let m: RegExpExecArray | null;
+  let k = 0;
+  while ((m = re.exec(ln))) {
+    const [full, com, str, num, id, call] = m;
+    if (com) out.push(<span key={k++} className="italic text-bone/40">{com}</span>);
+    else if (str) out.push(<span key={k++} className="text-lime">{str}</span>);
+    else if (num) out.push(<span key={k++} className="text-amber-300">{num}</span>);
+    else if (id && KEYWORDS.has(id)) out.push(<span key={k++} className="font-semibold text-fuchsia-400">{id}</span>);
+    else if (id && call) {
+      out.push(<span key={k++} className="text-sky-300">{id}</span>);
+      out.push(<span key={k++}>{call}</span>);
+    } else out.push(<span key={k++}>{full}</span>);
+    if (m[0] === "") re.lastIndex++;
+  }
+  return out;
+}
+
+/** bloque de código con colores y numeración; size lg para código protagonista */
+export function CodeBlock({
+  code,
+  lang = "tsx",
+  highlight,
+  size = "md",
+}: {
+  code: string;
+  lang?: string;
+  highlight?: number[];
+  size?: "md" | "lg";
+}) {
   const lines = code.replace(/\n$/, "").split("\n");
+  const big = size === "lg";
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-[#0d0d1c]/90 backdrop-blur-md">
-      <div className="flex items-center justify-between border-b border-line px-4 py-2">
-        <div className="flex gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-bone/15" />
-          <span className="h-2.5 w-2.5 rounded-full bg-bone/15" />
-          <span className="h-2.5 w-2.5 rounded-full bg-bone/15" />
+    <div className="overflow-hidden rounded-2xl border border-volt/30 bg-[#0a0a18]/95 backdrop-blur-md">
+      <div className={`flex items-center justify-between border-b border-line bg-bone/[0.04] ${big ? "px-6 py-3.5" : "px-4 py-2"}`}>
+        <div className="flex gap-2">
+          <span className={`rounded-full bg-red-400/80 ${big ? "h-3.5 w-3.5" : "h-2.5 w-2.5"}`} />
+          <span className={`rounded-full bg-amber-300/80 ${big ? "h-3.5 w-3.5" : "h-2.5 w-2.5"}`} />
+          <span className={`rounded-full bg-lime/80 ${big ? "h-3.5 w-3.5" : "h-2.5 w-2.5"}`} />
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-widest text-smoke">{lang}</span>
+        <span className={`font-mono uppercase tracking-widest text-volt ${big ? "text-sm" : "text-[10px]"}`}>{lang}</span>
       </div>
-      <pre className="px-4 py-3 text-left font-mono text-[12.5px] md:text-[13.5px] leading-relaxed overflow-x-auto">
-        {lines.map((ln, i) => (
-          <div key={i} className={highlight?.includes(i + 1) ? "bg-red-500/10 -mx-4 px-4" : ""}>
-            <span className="select-none text-bone/25 mr-4 tabular">{String(i + 1).padStart(2, "0")}</span>
-            <span className={highlight?.includes(i + 1) ? "text-red-300" : "text-bone/85"}>{ln}</span>
-          </div>
-        ))}
+      <pre
+        className={`text-left font-mono overflow-x-auto ${
+          big ? "px-6 py-6 text-[22px] leading-[1.7] md:text-[26px]" : "px-4 py-3 text-[15px] leading-relaxed md:text-[17px]"
+        }`}
+      >
+        {lines.map((ln, i) => {
+          const hl = highlight?.includes(i + 1);
+          return (
+            <div key={i} className={`text-bone/90 ${hl ? `bg-red-500/15 ${big ? "-mx-6 px-6" : "-mx-4 px-4"}` : ""}`}>
+              <span className={`select-none tabular text-bone/25 ${big ? "mr-6" : "mr-4"}`}>{String(i + 1).padStart(2, "0")}</span>
+              <span className={hl ? "text-red-300" : ""}>{hl ? ln : highlightLine(ln)}</span>
+            </div>
+          );
+        })}
       </pre>
     </div>
   );

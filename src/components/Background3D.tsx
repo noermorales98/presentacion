@@ -167,13 +167,13 @@ export default function Background3D({ scene }: { scene: SceneParams }) {
       (torus.material as THREE.MeshBasicMaterial).opacity = live.ringOpacity;
       (dashed.material as THREE.LineDashedMaterial).opacity = 0.35 * live.ringOpacity;
 
-      ringGroup.rotation.z = reduced ? 0.6 : t * live.ringSpeed;
+      ringGroup.rotation.z = reduced ? 0.6 : t * live.ringSpeed * 3.5;
       ringGroup.rotation.x = live.tiltX;
       ringGroup.rotation.y = live.tiltY;
       ringGroup.scale.setScalar(live.ringScale);
 
       if (!reduced) {
-        particles.rotation.y = t * live.drift;
+        particles.rotation.y = t * live.drift * 4;
         particles.rotation.z = Math.sin(t * 0.08) * 0.05;
         ringGroup.position.y = Math.sin(t * 0.4) * 0.06;
         glow.material.opacity = 0.13 + Math.sin(t * 0.6) * 0.03;

@@ -7,9 +7,9 @@ const LINES = ["¿Y si programar", "ya no fuera", "lo más importante?"];
 export default function Slide01() {
   return (
     <div className="flex h-full flex-col justify-center">
-      <h1 className=" font-grotesk text-[5.6rem] font-bold leading-[0.98] tracking-tight text-balance text-ink">
+      <h1 className=" font-grotesk text-[5.6rem] font-bold leading-[1.12] tracking-tight text-balance text-ink">
         {LINES.map((ln, i) => (
-          <span key={ln} className="block overflow-hidden">
+          <span key={ln} className="block overflow-hidden pb-[0.14em] -mb-[0.06em]">
             <motion.span
               className="block"
               initial={{ y: "110%" }}
@@ -18,7 +18,10 @@ export default function Slide01() {
             >
               {i === 2 ? (
                 <>
-                  lo más <span className="text-volt">importante</span>
+                  lo más{" "}
+                  <span className="glitch text-volt" data-text="importante?">
+                    importante?
+                  </span>
                   <motion.span
                     className="ml-2 inline-block h-[0.75em] w-[0.45em] translate-y-[0.08em] bg-volt"
                     animate={{ opacity: [1, 0, 1] }}
