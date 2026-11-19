@@ -35,7 +35,7 @@ export const TALK = {
   title: "¿Y si programar ya no fuera lo más importante?",
   subtitle: "Los agentes de IA y el nuevo rol del desarrollador.",
   speaker: "Noe",
-  studio: "Noxy Digital Studio",
+  studio: "Noxy Digital",
   date: "20 · Nov · 2026",
   /** duración de referencia solo para el cronómetro de la vista de presentador (privada) */
   durationMin: 30,
@@ -56,11 +56,11 @@ export function isLightScene(bg: string): boolean {
 export const SLIDES: SlideMeta[] = [
   {
     id: "portada",
-    kicker: "NOXY DIGITAL STUDIO",
+    kicker: "NOXY DIGITAL",
     steps: 1,
     scene: { bg: "#F2EDE3", mix: 0.55, tiltX: 0.42, tiltY: -0.18, ringSpeed: 0.05, drift: 0.012, ringScale: 1.0, ringOpacity: 0.85 },
     notes:
-      "(1 min) Todo el texto aparece solo, sin clics. Dejar el título en pantalla y SILENCIO de 2-3 segundos antes de hablar. Luego lanzar la pregunta: 'Hoy cualquiera crea software sin saber programar. ¿Dónde quedamos nosotros?' y dejar que respire. Presentarme: Noe, fundador de Noxy Digital Studio, Cancún. 'Hace [X] años escribía todo el código a mano. Hoy dirijo IA para construirlo.' → COMPLETAR [X] en Slide01.tsx con los años reales antes de la charla. Cerrar anunciando el quiz en vivo desde el teléfono.",
+      "(1 min) Todo el texto aparece solo, sin clics. Dejar el título en pantalla y SILENCIO de 2-3 segundos antes de hablar. Luego lanzar la pregunta: 'Hoy cualquiera crea software sin saber programar. ¿Dónde quedamos nosotros?' y dejar que respire. Presentarme: Noe, fundador de Noxy Digital, Cancún. Ingeniero en Desarrollo Web, ayudo a negocios y marcas a aprovechar mejor la tecnología. Cerrar anunciando el quiz en vivo desde el teléfono.",
   },
   {
     id: "quiz",

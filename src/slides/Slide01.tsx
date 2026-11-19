@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import { Kicker } from "@/components/ui";
 import { TALK } from "@/deck/DeckContext";
 
 const LINES = ["¿Y si programar", "ya no fuera", "lo más importante?"];
@@ -8,9 +7,7 @@ const LINES = ["¿Y si programar", "ya no fuera", "lo más importante?"];
 export default function Slide01() {
   return (
     <div className="flex h-full flex-col justify-center">
-      <Kicker>Charla</Kicker>
-
-      <h1 className="mt-6 font-grotesk text-[5.6rem] font-bold leading-[0.98] tracking-tight text-balance text-ink">
+      <h1 className=" font-grotesk text-[5.6rem] font-bold leading-[0.98] tracking-tight text-balance text-ink">
         {LINES.map((ln, i) => (
           <span key={ln} className="block overflow-hidden">
             <motion.span
@@ -68,11 +65,7 @@ export default function Slide01() {
             <p className="font-mono text-[11px] uppercase tracking-kicker text-ink/60">Cancún</p>
           </div>
           <p className="border-l border-ink/15 pl-6 font-grotesk text-xl leading-snug text-ink/80">
-            Hace <span className="rounded bg-volt/10 px-1.5 font-mono text-volt">[X]</span> años escribía todo el
-            código a mano. Hoy dirijo IA para construirlo.
-            <span className="mt-2 block font-mono text-[10px] uppercase tracking-kicker text-ink/45">
-              placeholder · completar [X] con los años reales
-            </span>
+            Ingeniero en Desarrollo Web, ayudo a negocios y marcas a aprovechar mejor la tecnología.
           </p>
         </motion.div>
       </div>
